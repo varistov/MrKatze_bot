@@ -254,7 +254,9 @@ def get_default_config_data():
         ("Captcha_Chars_Mode", CONST["INIT_CAPTCHA_CHARS_MODE"]),
         ("Language", CONST["INIT_LANG"]),
         ("Welcome_Msg", "-"),
-        ("Ignore_List", [])
+        ("Ignore_List", []),
+        ("Trigger_List", []),
+	("Trigger_Char", CONST["INIT_TRIGGER_CHAR"])
     ])
     return config_data
 
@@ -1157,6 +1159,35 @@ def cmd_welcome_msg(update: Update, context: CallbackContext):
         tlg_msg_to_selfdestruct(update.message)
         tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
+def cmd_add_trigger(update: Update, context: CallbackContext):
+    '''Command /add_trigger message handler'''
+    bot = context.bot
+    args = (" ").join(context.args).split("|")
+    chat_id = update.message.chat_id
+    user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
+    lang = get_chat_config(chat_id, "Language")
+    allow_command = True
+    if chat_type != "private":
+        is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+        if not is_admin:
+            allow_command = False
+    if allow_command:
+        if len(args) >= 1:
+            trigger_list = get_chat_config(chat_id,"Trigger_list")
+            trigger_list[args[0]]=args[1]
+            save_config_property(chat_id, "Trigger_List",trigger_list)
+        else:
+            bot_msg = TEXT[lang]["WELCOME_MSG_SET_NOT_ARG"]
+    elif not is_admin:
+         bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+    else:
+         bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+    if chat_type == "private":
+        bot.send_message(chat_id, bot_msg)
+    else:
+        tlg_msg_to_selfdestruct(update.message)
+        tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
 def cmd_restrict_non_text(update: Update, context: CallbackContext):
     '''Command /restrict_non_text message handler'''
