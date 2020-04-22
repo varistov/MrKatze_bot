@@ -794,7 +794,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
             tlg_delete_msg(bot, chat_id, msg.message_id)
             bot_msg = TEXT[lang]["CAPTCHA_SOLVED"].format(new_user["user_name"])
             # Set Bot to auto-remove captcha solved message too after 5mins
-            tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, 5)
+            #            tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, 5)
             if new_user in new_users_list:
                 new_users_list.remove(new_user)
             # Check for custom welcome message and send it
