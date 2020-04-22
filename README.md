@@ -1,6 +1,5 @@
-# TLG_JoinCaptchaBot
-Bot to verify if a new user, who join a group, is human.
-The Bot send an image captcha for each new user, and kick any of them that can't solve the captcha in a specified time. Also, any message that contains an URL sent by a new "user" before captcha completion, will be considered Spam and will be deleted.
+# v1nc_bot
+This bot manages telegram groups. Uses [TLG_JoinCaptchaBot](https://github.com/J-Rios/TLG_JoinCaptchaBot) for captchas.
 
 ### Installation:
 
@@ -48,51 +47,3 @@ To ease usage, a run, status and kill scripts has been provided.
 ```
 ./kill
 ```
-
-### Docker
-
-You can also run the bot on [Docker](http://docker.com). This allows easy
-server migration and automates the download of all dependencies. Look at the
-[docker specific documentation](docker/README.md) for more details.
-
-### Adding a New Language
-
-Actual language support is based on external JSON files that contains all bot texts for each language.
-
-To add support for a new language you must follow next steps:
-
-1. Fork the project repository, clone it to local and create a new branch to work on it (i.e. named language-support-en).
-
-2. Copy from one of the existing language JSON files from [here](https://github.com/J-Rios/TLG_JoinCaptchaBot/tree/master/sources/language) to a new one.
-
-3. Change the name of that file for the language ISO Code of the language that you want.
-
-4. Translate each text from JSON key values of the file without breaking the JSON format/structure (it should be valid for JSON parsers) and maintaining JSON keys names. Keep commands names in english (i.e. don't translate "START", "HELP"... /start /help ...) and don't remove special characters (like {}, ", ', \n...) too!
-
-5. Make a pull request of that branch with the new language file into this repository and wait to be accepted.
-
-6. Then, I will make the integration into source code and actual Bot account (@join_captcha_bot).
-
-7. Enjoy the new language :)
-
-### Languages Contributors:
-
- - French: [Mathieu H (Aurnytoraink)](https://github.com/Aurnytoraink)
-
- - Italian: Noquitt
-
- - Portuguese (Brazil): Anahuac de Paula Gil
-
- - Catalán: Adela Casals i Jorba
-
- - Galician: [Fernando Flores (Fer6Flores)](https://github.com/Fer6Flores); Iváns
-
- - Basque: [xa2er](https://github.com/xa2er)
-
- - Chinese (Mainland): [神林](https://github.com/jyxjjj)
-
- - Indonesian: ForIndonesian
- 
- - [Unsupported, not working] Persian (Iran): [sajjad taheri](https://github.com/tgMember)
-
- - Russian: Unattributed (anonymous)
