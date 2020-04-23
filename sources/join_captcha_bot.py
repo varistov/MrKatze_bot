@@ -1167,6 +1167,62 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     chat_type = update.message.chat.type
     lang = get_chat_config(chat_id, "Language")
+    trigger_list = get_chat_config(chat_id,"Trigger_List")
+    list_string = "Trigger-List:\n\n"
+    
+            print(trigger_list)
+            trigger_list[name]=message
+            save_config_property(chat_id, "Trigger_List",trigger_list)
+            bot_msg = TEXT[lang]["TRIGGER_ADD"]
+        else:
+            bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
+    if chat_type == "private":
+        bot.send_message(chat_id, bot_msg)
+    else:
+        tlg_msg_to_selfdestruct(update.message)
+        tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+
+
+def cmd_delete_trigger(update: Update, context: CallbackContext):
+'''Command /add_trigger message handler'''
+    bot = context.bot
+    args = context.args
+    chat_id = update.message.chat_id
+    user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
+    lang = get_chat_config(chat_id, "Language")
+    allow_command = True
+    if chat_type != "private":
+        is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+        if not is_admin:
+            allow_command = False
+    if allow_command:
+        if len(args) >= 1:
+            trigger_list = get_chat_config(chat_id,"Trigger_List")
+            for trigger in args:
+                trigger_list.pop(trigger,"")
+            save_config_property(chat_id, "Trigger_List",trigger_list)
+            bot_msg = TEXT[lang]["TRIGGER_DEL"]
+        else:
+            bot_msg = TEXT[lang]["TRIGGER_DEL_NOT_ARG"]
+    elif not is_admin:
+         bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+    else:
+         bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+    if chat_type == "private":
+        bot.send_message(chat_id, bot_msg)
+    else:
+        tlg_msg_to_selfdestruct(update.message)
+        tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+
+def cmd_triggers(update: Update, context: CallbackContext):
+'''Command /add_trigger message handler'''
+    bot = context.bot
+    args = context.args
+    chat_id = update.message.chat_id
+    user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
+    lang = get_chat_config(chat_id, "Language")
     allow_command = True
     if chat_type != "private":
         is_admin = tlg_user_is_admin(bot, user_id, chat_id)
