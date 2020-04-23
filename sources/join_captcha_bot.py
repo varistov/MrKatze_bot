@@ -255,7 +255,7 @@ def get_default_config_data():
         ("Language", CONST["INIT_LANG"]),
         ("Welcome_Msg", "-"),
         ("Ignore_List", []),
-        ("Trigger_List", []),
+        ("Trigger_List", {}),
 	("Trigger_Char", CONST["INIT_TRIGGER_CHAR"])
     ])
     return config_data
@@ -1162,7 +1162,7 @@ def cmd_welcome_msg(update: Update, context: CallbackContext):
 def cmd_add_trigger(update: Update, context: CallbackContext):
     '''Command /add_trigger message handler'''
     bot = context.bot
-    args = (" ").join(context.args).split("|")
+    args = context.args
     chat_id = update.message.chat_id
     user_id = update.message.from_user.id
     chat_type = update.message.chat.type
@@ -1173,12 +1173,18 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
         if not is_admin:
             allow_command = False
     if allow_command:
-        if len(args) >= 1:
-            trigger_list = get_chat_config(chat_id,"Trigger_list")
-            trigger_list[args[0]]=args[1]
+        if len(args) >= 2:
+            name = args[0]
+            print(name)
+            message = " ".join(args[1:])
+            print(message)
+            trigger_list = get_chat_config(chat_id,"Trigger_List")
+            print(trigger_list)
+            trigger_list[name]=message
             save_config_property(chat_id, "Trigger_List",trigger_list)
+            bot_msg = TEXT[lang]["TRIGGER_ADD"]
         else:
-            bot_msg = TEXT[lang]["WELCOME_MSG_SET_NOT_ARG"]
+            bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
     elif not is_admin:
          bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
     else:
@@ -1633,6 +1639,7 @@ def main():
     dp.add_handler(CommandHandler("difficulty", cmd_difficulty, pass_args=True))
     dp.add_handler(CommandHandler("captcha_mode", cmd_captcha_mode, pass_args=True))
     dp.add_handler(CommandHandler("welcome_msg", cmd_welcome_msg, pass_args=True))
+    dp.add_handler(CommandHandler("add_trigger",cmd_add_trigger,pass_args=True))
     dp.add_handler(CommandHandler("restrict_non_text", cmd_restrict_non_text, pass_args=True))
     dp.add_handler(CommandHandler("add_ignore", cmd_add_ignore, pass_args=True))
     dp.add_handler(CommandHandler("remove_ignore", cmd_remove_ignore, pass_args=True))
