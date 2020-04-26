@@ -256,6 +256,7 @@ def get_default_config_data():
         ("Welcome_Msg", CONST["INIT_WELCOME_MSG"]),
         ("Ignore_List", []),
         ("Trigger_List", {}),
+        ("Question_List", {}),
 	("Trigger_Char", CONST["INIT_TRIGGER_CHAR"])
     ])
     return config_data
@@ -810,7 +811,9 @@ def msg_nocmd(update: Update, context: CallbackContext):
                 new_users_list.remove(new_user)
             # Check for custom welcome message and send it
             print(new_user)
-            welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(new_user["user_name"], msg.from_user.full_name, new_user["user_id"])
+            user_link = new_user["user_name"].split("@")
+            user_link = "https://t.me/{}".format(user_link[len(user_link)-1])
+            welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(new_user["user_name"],"'{}'".format( msg.from_user.full_name), new_user["user_id"],user_link)
             print(welcome_msg)
             if welcome_msg != "-":
                 tlg_send_selfdestruct_msg_in(bot, chat_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
@@ -1149,7 +1152,7 @@ def cmd_welcome_msg(update: Update, context: CallbackContext):
     if allow_command:
         if len(args) >= 1:
             welcome_msg = " ".join(args)
-            welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}")
+            welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}").replace("$link","{3}")
             welcome_msg = welcome_msg[:CONST["MAX_WELCOME_MSG_LENGTH"]]
             if welcome_msg == "disable":
                 welcome_msg = '-'
@@ -1254,6 +1257,106 @@ def cmd_triggers(update: Update, context: CallbackContext):
     else:
         tlg_msg_to_selfdestruct(update.message)
         tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+
+def cmd_delete_question(update: Update, context: CallbackContext):
+    '''Command /delete_trigger message handler'''
+    bot = context.bot
+    args = context.args
+    chat_id = update.message.chat_id
+    user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
+    lang = get_chat_config(chat_id, "Language")
+    allow_command = True
+    if chat_type != "private":
+        is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+        if not is_admin:                                                          allow_command = False
+    if allow_command:
+        if len(args) >= 1:
+            question_list = get_chat_config(chat_id,"Question_List")
+            for question in args:
+                question_list.pop(question,"")
+            save_config_property(chat_id, "Question_List",question_list)
+            bot_msg = TEXT[lang]["QUESTION_DELETE"]
+        else:
+            bot_msg = TEXT[lang]["TRIGGER_DELETE_NOT_ARG"]
+    elif not is_admin:
+         bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+    else:
+         bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+    if chat_type == "private":
+        bot.send_message(chat_id, bot_msg)
+    else:
+        tlg_msg_to_selfdestruct(update.message)
+        tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+def cmd_questions(update: Update, context: CallbackContext):
+    '''Command /add_trigger message handler'''
+    bot = context.bot
+    args = context.args
+    chat_id = update.message.chat_id
+    user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
+    lang = get_chat_config(chat_id, "Language")
+    allow_command = True
+    if chat_type != "private":
+        is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+        if not is_admin:                                                          allow_command = False
+    if allow_command:
+        question_list = get_chat_config(chat_id,"Question_List")
+        question_string = "<b>Question List</b>\n\n"
+        for key in question_list:
+            question_string+="- {}\n".format(key)
+        bot_msg = question_string
+    elif not is_admin:
+         bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+    else:
+         bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+    if chat_type == "private":
+        bot.send_message(chat_id, bot_msg)
+    else:
+        tlg_msg_to_selfdestruct(update.message)
+        tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, True)
+
+def cmd_add_question(update: Update, context: CallbackContext):
+    '''Command /add_trigger message handler'''
+    bot = context.bot
+    args = context.args
+    args = " ".join(args).split("|")
+    chat_id = update.message.chat_id
+    user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
+    lang = get_chat_config(chat_id, "Language")
+    allow_command = True
+    if chat_type != "private":
+        is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+        if not is_admin:
+            allow_command = False
+    if allow_command:
+        if len(args) >=4:
+            question = {}
+            question["q"] = args[1]
+            question["a"] = args[2]
+            question["wrongs"] = []
+            print(question)
+            for wrong in args[3:]:
+                question["wrongs"].append(wrong)
+            print(question)
+            questions = get_chat_config(chat_id, "Question_List")
+            print(questions)
+            questions[args[0]] = question
+            print(questions)
+            save_config_property(chat_id, "Question_List",questions)
+            bot_msg = TEXT[lang]["QUESTION_ADD"]
+        else:
+            bot_msg = TEXT[lang]["QUESTION_ADD_NOT_ARG"]
+    elif not is_admin:
+         bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+    else:
+         bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+    if chat_type == "private":
+        bot.send_message(chat_id, bot_msg)
+    else:
+        tlg_msg_to_selfdestruct(update.message)
+        tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
 
 def cmd_restrict_non_text(update: Update, context: CallbackContext):
     '''Command /restrict_non_text message handler'''
@@ -1699,9 +1802,15 @@ def main():
     dp.add_handler(CommandHandler("difficulty", cmd_difficulty, pass_args=True))
     dp.add_handler(CommandHandler("captcha_mode", cmd_captcha_mode, pass_args=True))
     dp.add_handler(CommandHandler("welcome_msg", cmd_welcome_msg, pass_args=True))
+
     dp.add_handler(CommandHandler("add_note", cmd_add_trigger,pass_args=True))
     dp.add_handler(CommandHandler("delete_note",cmd_delete_trigger,pass_args=True))
     dp.add_handler(CommandHandler("notes",cmd_triggers,pass_args=True))
+
+    dp.add_handler(CommandHandler("add_question", cmd_add_question, pass_args=True))
+    dp.add_handler(CommandHandler("delete_question", cmd_delete_question, pass_args=True))
+    dp.add_handler(CommandHandler("questions", cmd_questions, pass_args=True))
+
     dp.add_handler(CommandHandler("restrict_non_text", cmd_restrict_non_text, pass_args=True))
     dp.add_handler(CommandHandler("add_ignore", cmd_add_ignore, pass_args=True))
     dp.add_handler(CommandHandler("remove_ignore", cmd_remove_ignore, pass_args=True))

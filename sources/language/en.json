@@ -62,6 +62,18 @@
     "TRIGGER_DELETE_NOT_ARG":
         "Place the note after the command.\n\nExample:\n/delete_note help",
 
+    "QUESTION_ADD":
+        "Question successfully added.",
+
+    "QUESTION_DELETE":
+        "Question successfully deleted.",
+
+    "QUESTION_ADD_NOT_ARG":
+        "Example:\n\n/add_question name|question|answer|wrong_answer|wrong_answer",
+
+    "QUESTION_DELETE_NOT_ARG":
+        "Place the question name after the command.\n\nExample:\n\n/delete_question name",
+
     "WELCOME_MSG_SET":
         "Welcome message successfully configured.",
 
