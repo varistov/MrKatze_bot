@@ -1,4 +1,4 @@
-# v1nc_bot
+# butter_bot
 This bot manages telegram groups. Uses [TLG_JoinCaptchaBot](https://github.com/J-Rios/TLG_JoinCaptchaBot) for captchas.
 
 ### Installation:
