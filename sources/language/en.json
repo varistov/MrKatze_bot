@@ -1,12 +1,45 @@
 {
+    "USER_START":
+        "You are authorized!\n\nCheck /commands for more information about my usage.\n\nUse the buttons below to request an invitation link.",
+
     "START":
-        "Hello, I will help you managing groups!\n\nCheck /help command for more information about my usage.",
+        "Hello, my name is ButterBot. I help you managing groups.\n\nCheck /commands for more information about my usage.",
 
     "HELP":
-        "Bot help:\n————————————————\n- I am a Bot that send a captcha for each new user who joins a group, and kick anyof them that can't solve the captcha within a specified time.\n\n- If a user tries to join the group 5 times in a row and never solves the captcha, I will assume that the \"user\" is a bot, and it will be banned.\n\n- Any message that contains an URL that has been sent by a new \"user\" before captcha is completed, will be considered spam and will be deleted.\n\n- You need to grant me Administration rights for kick users and remove messages.\n\n- To preserve a clean group, I auto-remove all messages related to me when a captcha is not solved and the user was kicked (after 5 minutes).\n\n- The time that new users have to solve the captcha is 5 minutes by default, but it can be configured using the command /time.\n\n- You can turn captcha protection on/off using the commands /enable and /disable.\n\n- Configuration commands can only be used by group Administrators.\n\n- You can change the language that I speak, using the command /language.\n\n- You can configure captcha difficulty level using command /difficulty.\n\n- You can set captcha to use just numbers (default) or full numbers and letters, using command /captcha_mode.\n\n- You can configure a custom welcome message with command /welcome_msg.\n\n- You can enable an option to let me apply restriction to new joined users to send non-text messages using command /restrict_non_text.\n\n- You can add triggers to post messages with markdown using /add_note and /delete_note\n\n- Check /commands to get a list of all avaliable commands, and a short description of all of them.",
+        "Bot help:\n————————————————\n- I am a Bot that send a captcha for each new user who joins a group, and kick anyof them that can't solve the captcha within a specified time.\n\n- If a user tries to join the group 5 times in a row and never solves the captcha, I will assume that the \"user\" is a bot, and it will be banned.\n\n- Any message that contains an URL that has been sent by a new \"user\" before captcha is completed, will be considered spam and will be deleted.\n\n- You need to grant me Administration rights for kick users and remove messages.\n\n- To preserve a clean group, I auto-remove all messages related to me when a captcha is not solved and the user was kicked (after 5 minutes).\n\n- The time that new users have to solve the captcha is 5 minutes by default, but it can be configured using the command /time.\n\n- You can turn captcha protection on/off using the commands /enable and /disable.\n\n- Configuration commands can only be used by group Administrators.\n\n- You can change the language that I speak, using the command /language.\n\n- You can configure captcha difficulty level using command /difficulty.\n\n- You can set captcha to use just numbers (default) or full numbers and letters, using command /captcha_mode.\n\n- You can configure a custom welcome message with command /welcome_msg.\n\n- You can enable an option to let me apply restriction to new joined users to send non-text messages using command /restrict_non_text.\n\n- You can add triggers to post messages with markdown using /add_note and /delete_note\n\n- You can enable protection with /protection\n\n- Check /commands to get a list of all avaliable commands, and a short description of all of them.",
+
+    "CONNECTED":
+        "You are connected to group {}.",
+
+    "DISCONNECTED":
+        "Disconnected!",
+
+    "NOT_CONNECTED":
+        "You are not connected to any group! Please connect to a group to use group commands.",
+
+    "CONNECT_NO_ARGS":
+        "Please specify to which group you want to connect. You are admin in the following group(s):\n",
+
+    "CONNECT_NO_ARGS_BUT_CONNECTED":
+        "Please specify to which group you want to connect.\nYou are connected to {}\nYou are admin in the following group(s):\n",
+
+    "USER_CAPTCHA":
+        "Hello {}, please write a message with the numbers and/or letters that appears in this image to verify that you are a human. You have {} mins to resolve the captcha!",
+
+    "USER_CAPTCHA_FAILED":
+        "Wrong code! Please try again.",
+
+    "CHANNEL_PROTECTION_ON":
+        "Channel protection enabled. From now on this bot manages your groups invitation links.",
+
+    "CHANNEL_PROTECTION_OFF":
+        "Channel protection disabled. Please recreate your invitation link!",
 
     "CMD_NOT_ALLOW":
         "Only an Admin can use this command.",
+
+    "GROUP_NOT_ALLOWED":
+        "I am not allowed to run in this group! Please request the permission from my owner. Bye",
 
     "LANG_CHANGE":
         "Language changed to English.",
@@ -49,6 +82,12 @@
 
     "CAPTCHA_MODE_NOT_ARG":
         "The command needs a character-mode to set. Available modes are:\n- Numeric Captchas (\"nums\").\n- Hexadecimal Captchas, numbers and characters A-F (\"hex\").\n- Numbers and characters A-Z Captchas (\"ascii\").\n\nExamples:\n/captcha_mode nums\n/captcha_mode hex\n/captcha_mode ascii",
+
+    "PROTECTION_IN_PROCESS":
+        "Another user currently uses the protection process for this group. Please wait {} minutes or until the user joined the group!",
+
+    "PROTECTION_SEND_LINK":
+        "Requested invitation link: {}\n\n<b>only valid for {} minutes!</b>",
 
     "TRIGGER_ADD":
         "Note successfully added.",
@@ -198,5 +237,8 @@
         "Bot based on work by {}.\n\nYou can check the code here:\n{}",
 
     "COMMANDS":
-        "List of commands:\n————————————————\n/start - Shows the initial information about the bot.\n\n/help - Shows the help information.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/language - Allows to change the language of the bot's messages.\n\n/time - Allows changing the time available to solve a captcha.\n\n/difficulty - Allows changing captcha difficulty level (from 1 to 5).\n\n/captcha_mode - Allows changing captcha character-mode (nums: just numbers, hex: numbers and A-F chars, ascii: numbers and A-Z chars).\n\n/welcome_msg - Allows configure a welcome message that is sent after resolving the captcha.\n\n/restrict_non_text - Enable apply restriction to new joined users to send non-text messages.\n\n/add_ignore - Do not ask an ignored user the captcha.\n\n/remove_ignore - Stop ignoring a user.\n\n/ignore_list - list of ignored users' IDs.\n\n/enable - Enable the captcha protection of the group.\n\n/disable - Disable the captcha protection of the group.\n\n/version - Show the version of the Bot.\n\n/about - Show about info.\n\n/notes - Show note list.\n\n/add_note - Add a note and message to the list.\n\n/delete_note - Delete a note from the list."
+        "List of group commands:\n\n/start - Shows the initial information about the bot.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/language - Allows to change the language of the bot's messages.\n\n/time - Allows changing the time available to solve a captcha.\n\n/difficulty - Allows changing captcha difficulty level (from 1 to 5).\n\n/captcha_mode - Allows changing captcha character-mode (nums: just numbers, hex: numbers and A-F chars, ascii: numbers and A-Z chars).\n\n/welcome_msg - Allows configure a welcome message that is sent after resolving the captcha.\n\n/restrict_non_text - Enable apply restriction to new joined users to send non-text messages.\n\n/add_ignore - Do not ask an ignored user the captcha.\n\n/remove_ignore - Stop ignoring a user.\n\n/ignore_list - list of ignored users' IDs.\n\n/enable - Enable the captcha protection of the group.\n\n/disable - Disable the captcha protection of the group.\n\n/version - Show the version of the Bot.\n\n/about - Show about info.\n\n/notes - Show note list.\n\n/add_note - Add a note and message to the list.\n\n/delete_note - Delete a note from the list.",
+
+    "USER_COMMANDS":
+        "List of user commands:\n\n/start - Request invitation links for protected groups.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/connect - Connect to a group you are admin of. This activates group commands in private chat.\n\n/disconnect - Disconnect from the connected group."
 }
