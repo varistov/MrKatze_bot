@@ -1,5 +1,17 @@
 # butter_bot
-This bot manages telegram groups. Uses [TLG_JoinCaptchaBot](https://github.com/J-Rios/TLG_JoinCaptchaBot) for captchas.
+I manage your telegram groups. I use [TLG_JoinCaptchaBot](https://github.com/J-Rios/TLG_JoinCaptchaBot) for captchas.
+
+## Features:
+- bot protection: verify new users with captchas, auto kick spamming bots
+
+- log protection: let the bot manage your invitation links; bots can not even join your group
+
+- notes: add notes for your user
+
+- connect: manage your group settings in private
+
+- auto-delete: I do not spam your group, messages are automatically deleted
+
 
 ### Installation:
 
