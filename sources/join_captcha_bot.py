@@ -28,7 +28,7 @@ from os import path, remove, makedirs, listdir
 from shutil import rmtree
 from datetime import datetime, timedelta
 from time import time, sleep, strptime, mktime, strftime
-from threading import Thread, Lock
+from threading import Thread, Lock, Timer
 from operator import itemgetter
 from collections import OrderedDict
 from random import randint
@@ -289,7 +289,7 @@ def get_protected_list():
 		current_time = get_chat_config(group["ID"],"Protection_Current_Time")
 		captcha_timeout = get_chat_config(group["ID"],"Captcha_Time")
 		if enabled and allowed and title:
-			if time() > current_time + (captcha_timeout * 60):
+			if len(str(current_user)) > 1 and time() > current_time + (captcha_timeout * 60):
 				save_config_property(group["ID"],"Protection_Current_User","")
 			protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return list(uniq(sorted(protected_list, reverse=True)))
@@ -337,12 +337,14 @@ def kick_user(bot,chat_id,user_id,user_name):
 			# Set to auto-remove the kick message too, after a while
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
-def handle_request(chat_id,user_id):
-	link = "test123"
+def handle_request(bot,chat_id,user_id):
+	link = revoke_group_link(bot,chat_id)
 	save_config_property(chat_id,"Protection_Current_User",user_id)
 	save_config_property(chat_id,"Protection_Current_Time",time())
 	return link
 
+def revoke_group_link(bot,chat_id):
+	return bot.exportChatInviteLink(chat_id)
 def request_group_link(bot,chat_id,user_id,lang,query_id):
 	try:
 		printts("[{}]: user {} requested group link".format(chat_id,user_id))
@@ -351,13 +353,15 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 		captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
 		if current_user == "":
 			printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
-			link = handle_request(chat_id,user_id)
+			link = handle_request(bot,chat_id,user_id)
 			bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+			Timer(int(captcha_timeout), revoke_group_link, [bot,chat_id]).start()
 		elif current_user != user_id:
 			if time() > current_user_time+(captcha_timeout*60):
 				printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
-				link = handle_request(chat_id,user_id)
+				link = handle_request(bot,chat_id,user_id)
 				bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+				Timer(int(captcha_timeout), revoke_group_link, [bot,chat_id]).start()
 			else:
 				mins_left = math.floor((current_user_time+(captcha_timeout*60)-time())/60)
 				printts("[{}]: user {} old link still active".format(chat_id,user_id))
@@ -740,10 +744,12 @@ def msg_new_user(update: Update, context: CallbackContext):
 				send_welcome_msg(bot,chat_id,update)
 				save_config_property(chat_id,"Protection_Current_User","")
 				save_config_property(chat_id,"Protection_Current_Time",0)
+				revoke_group_link(bot,chat_id)
 				printts("[{}] User joined after protected authorization!".format(chat_id))
 				continue
 			elif protected:
 				kick_user(bot,chat_id,join_user_id,update.message.from_user.username)
+				revoke_group_link(bot,chat_id)
 				printts("[{}] User kicked because of protection!".format(chat_id))
 				continue
 			# Check and remove previous join messages of that user (if any)
@@ -1215,8 +1221,8 @@ def cmd_connect(update: Update, context: CallbackContext):
 				bot_msg = TEXT[lang]["CONNECT_NO_ARGS"]
 			admin_groups =  list_admin_groups(bot,user_id)
 			for group in admin_groups:
-				bot_msg+="\n{}".format(group)
-		bot.send_message(chat_id, bot_msg)
+				bot_msg+="\n<code>{}</code>".format(group)
+		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
 		print(e)
 
@@ -2003,29 +2009,31 @@ def cmd_captcha(update: Update, context: CallbackContext):
 		printts("[{}] {}".format(chat_id, str(e)))
 
 def cmd_protection(update: Update, context: CallbackContext):
-	bot = context.bot
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	print_id = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	current = get_chat_config(chat_id,"Protected")
-	lang = get_chat_config(chat_id, "Language")
-	if update.message.chat.type != "private":
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		current = get_chat_config(chat_id,"Protected")
+		lang = get_chat_config(chat_id, "Language")
 		if current:
 			save_config_property(chat_id,"Protected",False)
+			revoke_group_link(bot,chat_id)
 			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_OFF"]
 		else:
 			save_config_property(chat_id,"Protected",True)
 			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_ON"]
-	else:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	bot.send_message(print_id, bot_msg)
+		bot.send_message(print_id, bot_msg)
+	except Exception as e:
+		print(e)
 
 	
 ####################################################################################################

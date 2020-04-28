@@ -87,7 +87,7 @@
         "Another user currently uses the protection process for this group. Please wait {} minutes or until the user joined the group!",
 
     "PROTECTION_SEND_LINK":
-        "Requested invitation link: {}\n\n<b>only valid for {} minutes!</b>",
+        "Requested invitation link: \n{}\n\n<b>only valid for {} minutes!</b>",
 
     "TRIGGER_ADD":
         "Note successfully added.",
