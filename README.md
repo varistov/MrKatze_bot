@@ -4,7 +4,7 @@ I manage your telegram groups. I use [TLG_JoinCaptchaBot](https://github.com/J-R
 ## Features:
 - bot protection: verify new users with captchas, auto kick spamming bots
 
-- log protection: let the bot manage your invitation links; bots can not even join your group
+- log protection: let me manage your invitation links; bots can not even join your group
 
 - notes: add notes for your user
 
