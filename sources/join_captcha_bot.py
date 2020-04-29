@@ -289,8 +289,8 @@ def get_protected_list():
 		current_time = get_chat_config(group["ID"],"Protection_Current_Time")
 		captcha_timeout = get_chat_config(group["ID"],"Captcha_Time")
 		if enabled and allowed and title:
-			if len(str(current_user)) > 1 and time() > current_time + (captcha_timeout * 60):
-				save_config_property(group["ID"],"Protection_Current_User","")
+			if current_user > 1 and time() > current_time + (captcha_timeout * 60):
+				save_config_property(group["ID"],"Protection_Current_User",0)
 			protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return list(uniq(sorted(protected_list, reverse=True)))
 
@@ -337,14 +337,22 @@ def kick_user(bot,chat_id,user_id,user_name):
 			# Set to auto-remove the kick message too, after a while
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
-def handle_request(bot,chat_id,user_id):
+def handle_request(bot,chat_id,user_id,captcha_timeout):
 	link = revoke_group_link(bot,chat_id)
+	user_time = time()
 	save_config_property(chat_id,"Protection_Current_User",user_id)
-	save_config_property(chat_id,"Protection_Current_Time",time())
+	save_config_property(chat_id,"Protection_Current_Time",user_time)
+	Timer(int(captcha_timeout), revoke_group_link_delayed, [bot,chat_id,user_id,user_time]).start()
 	return link
+
+def revoke_group_link_delayed(bot,chat_id, expected_user, expected_time):
+	if expected_user == get_chat_config(chat_id,"Protection_Current_User"):
+		if expected_time == get_chat_config(chat_id,"Protection_Current_Time"):
+			return bot.exportChatInviteLink(chat_id)
 
 def revoke_group_link(bot,chat_id):
 	return bot.exportChatInviteLink(chat_id)
+
 def request_group_link(bot,chat_id,user_id,lang,query_id):
 	try:
 		printts("[{}]: user {} requested group link".format(chat_id,user_id))
@@ -353,23 +361,24 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 		captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
 		if current_user == "":
 			printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
-			link = handle_request(bot,chat_id,user_id)
+			link = handle_request(bot,chat_id,user_id,captcha_timeout)
 			bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
-			Timer(int(captcha_timeout), revoke_group_link, [bot,chat_id]).start()
+			
 		elif current_user != user_id:
 			if time() > current_user_time+(captcha_timeout*60):
 				printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
-				link = handle_request(bot,chat_id,user_id)
+				link = handle_request(bot,chat_id,user_id,captcha_timeout)
 				bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
-				Timer(int(captcha_timeout), revoke_group_link, [bot,chat_id]).start()
 			else:
 				mins_left = math.floor((current_user_time+(captcha_timeout*60)-time())/60)
 				printts("[{}]: user {} old link still active".format(chat_id,user_id))
 				bot_msg = TEXT[lang]["PROTECTION_IN_PROCESS"].format(mins_left)
+		else:
+			bot_msg = TEXT[lang]["PROTECTION_REQUESTED"]
 		tlg_send_selfdestruct_msg(bot,user_id,bot_msg)
 		bot.answer_callback_query(query_id)
 	except Exception as e:
-		print(e)
+		print(e,"request_group_link")
 
 def list_admin_groups(bot,user_id):
 	admin_list = []
@@ -380,9 +389,9 @@ def list_admin_groups(bot,user_id):
 
 def get_connected_group(bot,user_id):
 	connected_group = get_chat_config(user_id,"Connected_Group")
-	if len(connected_group) > 1 and tlg_user_is_admin(bot, user_id, connected_group):
+	if connected_group < 0 and tlg_user_is_admin(bot, user_id, connected_group):
 		return connected_group
-	return False
+	return 1
 def send_not_connected(bot,chat_id):
 	lang = get_chat_config(chat_id,"Language")
 	bot_msg = TEXT[lang]["NOT_CONNECTED"]
@@ -412,7 +421,7 @@ def get_default_config_data():
 		("Protected",False),
 		("Protection_Current_User",0),
 		("Protection_Current_Time",0),
-		("Connected_Group",""),
+		("Connected_Group",0),
 		("Trigger_List", {}),
 		("Question_List", {}),
 		("Trigger_Char", CONST["INIT_TRIGGER_CHAR"])
@@ -742,7 +751,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 			captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
 			if protected and current_user == join_user_id and time() <= current_user_time+(captcha_timeout*60):
 				send_welcome_msg(bot,chat_id,update)
-				save_config_property(chat_id,"Protection_Current_User","")
+				save_config_property(chat_id,"Protection_Current_User",0)
 				save_config_property(chat_id,"Protection_Current_Time",0)
 				revoke_group_link(bot,chat_id)
 				printts("[{}] User joined after protected authorization!".format(chat_id))
@@ -1191,7 +1200,7 @@ def cmd_start(update: Update, context: CallbackContext):
 			if get_chat_config(chat_id,"Allowed"):
 				tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["START"])
 			else:
-				tlg_send_selfdestruct_msg(bot,chat_id,TEXT[lang]["GROUP_NOT_ALLOWED"])
+				tlg_send_selfdestruct_msg(bot, chat_id,TEXT[lang]["GROUP_NOT_ALLOWED"])
 	except Exception as e:
 		print(e)
 
@@ -1210,12 +1219,12 @@ def cmd_connect(update: Update, context: CallbackContext):
 		if len(args) == 1:
 			if tlg_user_is_admin(bot, user_id, args[0]):
 				bot_msg = TEXT[lang]["CONNECTED"].format(args[0])
-				save_config_property(user_id,"Connected_Group",args[0])
+				save_config_property(user_id,"Connected_Group",int(args[0]))
 			else:
 				bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
 			connected_group = get_chat_config(user_id,"Connected_Group")
-			if len(connected_group) > 1:
+			if connected_group < 0:
 				bot_msg = TEXT[lang]["CONNECT_NO_ARGS_BUT_CONNECTED"].format(connected_group)
 			else:
 				bot_msg = TEXT[lang]["CONNECT_NO_ARGS"]
@@ -1234,9 +1243,9 @@ def cmd_disconnect(update: Update, context: CallbackContext):
 	connected_group = get_chat_config(user_id,"Connected_Group")
 	if chat_type != "private":
 		return
-	if len(connected_group) > 1:
+	if connected_group < 0:
 		bot_msg = TEXT[lang]["DISCONNECTED"]
-		save_config_property(user_id,"Connected_Group","")
+		save_config_property(user_id,"Connected_Group",0)
 	else:
 		bot_msg = TEXT[lang]["NOT_CONNECTED"]
 	bot.send_message(user_id, bot_msg)
@@ -1262,7 +1271,7 @@ def cmd_commands(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	lang = get_chat_config(chat_id, "Language")
 	if chat_type == "private":
-		if len(get_chat_config(chat_id,"Connected_Group")) > 1:
+		if get_chat_config(chat_id,"Connected_Group") < 0:
 			commands_text = TEXT[lang]["COMMANDS"]
 			bot.send_message(chat_id, commands_text)
 		commands_text = TEXT[lang]["USER_COMMANDS"]
@@ -1283,7 +1292,7 @@ def cmd_language(update: Update, context: CallbackContext):
 	print_chat = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1329,7 +1338,7 @@ def cmd_time(update: Update, context: CallbackContext):
 	print_chat = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1376,7 +1385,7 @@ def cmd_difficulty(update: Update, context: CallbackContext):
 	print_chat = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1422,7 +1431,7 @@ def cmd_captcha_mode(update: Update, context: CallbackContext):
 	print_chat = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1465,7 +1474,7 @@ def cmd_welcome_msg(update: Update, context: CallbackContext):
 	print_chat = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1509,7 +1518,7 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1550,7 +1559,7 @@ def cmd_delete_trigger(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1589,7 +1598,7 @@ def cmd_triggers(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1615,7 +1624,7 @@ def cmd_delete_question(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1652,7 +1661,7 @@ def cmd_questions(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1688,7 +1697,7 @@ def cmd_add_question(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1737,7 +1746,7 @@ def cmd_restrict_non_text(update: Update, context: CallbackContext):
 	print_id = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1783,7 +1792,7 @@ def cmd_add_ignore(update: Update, context: CallbackContext):
 	print_id = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1831,7 +1840,7 @@ def cmd_remove_ignore(update: Update, context: CallbackContext):
 	print_id = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1875,7 +1884,7 @@ def cmd_ignore_list(update: Update, context: CallbackContext):
 	print_id = chat_id
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1908,7 +1917,7 @@ def cmd_enable(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -1942,7 +1951,7 @@ def cmd_disable(update: Update, context: CallbackContext):
 	chat_type = update.message.chat.type
 	if chat_type == "private":
 		connected = get_connected_group(bot,user_id)
-		if connected:
+		if connected < 0:
 			chat_id = connected
 		else:
 			send_not_connected(bot,chat_id)
@@ -2017,7 +2026,7 @@ def cmd_protection(update: Update, context: CallbackContext):
 		print_id = chat_id
 		if chat_type == "private":
 			connected = get_connected_group(bot,user_id)
-			if connected:
+			if connected < 0:
 				chat_id = connected
 			else:
 				send_not_connected(bot,chat_id)

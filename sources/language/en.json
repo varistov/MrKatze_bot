@@ -89,6 +89,9 @@
     "PROTECTION_SEND_LINK":
         "Requested invitation link: \n{}\n\n<b>only valid for {} minutes!</b>",
 
+    "PROTECTION_REQUESTED":
+        "You already requested this link! Please use it!",
+        
     "TRIGGER_ADD":
         "Note successfully added.",
 
