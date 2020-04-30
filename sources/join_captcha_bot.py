@@ -21,7 +21,7 @@ Version:
 ####################################################################################################
 
 ### Imported modules ###
-import re, math
+import re, math, traceback
 from sys import exit
 from signal import signal, SIGTERM, SIGINT
 from os import path, remove, makedirs, listdir
@@ -294,7 +294,7 @@ def get_protected_list():
 			protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return list(uniq(sorted(protected_list, reverse=True)))
 
-def send_welcome_msg(bot,chat_id, update):
+def send_welcome_msg(bot,chat_id, update, print_id):
 	msg = getattr(update, "message", None)
 	if msg:
 		user_name = msg.from_user.username
@@ -303,7 +303,7 @@ def send_welcome_msg(bot,chat_id, update):
 		user_link = "https://t.me/{}".format(user_name)
 		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
 		if welcome_msg != "-":
-			tlg_send_selfdestruct_msg_in(bot, chat_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
+			tlg_send_selfdestruct_msg_in(bot, print_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
 
 def kick_user(bot,chat_id,user_id,user_name):
 	print(chat_id,user_id)
@@ -378,25 +378,47 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 		tlg_send_selfdestruct_msg(bot,user_id,bot_msg)
 		bot.answer_callback_query(query_id)
 	except Exception as e:
-		print(e,"request_group_link")
+		print(traceback.format_exc())
 
 def list_admin_groups(bot,user_id):
 	admin_list = []
 	for group in files_config_list:
 		if tlg_user_is_admin(bot, user_id, group["ID"]):
 			admin_list.append(group["ID"])
-	return list(set(admin_list))
+			print(group["ID"])
+	return uniq_list(admin_list)
+
+
+def uniq_list(seq): # Order preserving
+  ''' Modified version of Dave Kirby solution '''
+  seen = set()
+  return [x for x in seq if x not in seen and not seen.add(x)]
 
 def get_connected_group(bot,user_id):
 	connected_group = get_chat_config(user_id,"Connected_Group")
 	if connected_group < 0 and tlg_user_is_admin(bot, user_id, connected_group):
 		return connected_group
 	return 1
+
 def send_not_connected(bot,chat_id):
 	lang = get_chat_config(chat_id,"Language")
 	bot_msg = TEXT[lang]["NOT_CONNECTED"]
 	bot.send_message(chat_id,bot_msg)
-	
+
+def send_command_list(bot,update):
+	chat_id = update.message.chat_id
+	chat_type = update.message.chat.type
+	lang = get_chat_config(chat_id, "Language")
+	if chat_type == "private":
+		if get_chat_config(chat_id,"Connected_Group") < 0:
+			commands_text = TEXT[lang]["COMMANDS"]
+			bot.send_message(chat_id, commands_text)
+		commands_text = TEXT[lang]["USER_COMMANDS"]
+		bot.send_message(chat_id, commands_text)
+	else:
+		commands_text = TEXT[lang]["COMMANDS"]
+		tlg_msg_to_selfdestruct(update.message)
+		tlg_send_selfdestruct_msg(bot, chat_id, commands_text)	
 ####################################################################################################
 
 ### JSON chat config file functions ###
@@ -683,6 +705,10 @@ def msg_new_user(update: Update, context: CallbackContext):
 		tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"], 1)
 		tlg_leave_chat(bot, chat_id)
 		return
+	if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
+			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
+			tlg_leave_chat(bot, msg.chat_id)
+			return
 	# For each new user that join or has been added
 	for join_user in update.message.new_chat_members:
 		join_user_id = join_user.id
@@ -750,7 +776,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 			protected = get_chat_config(chat_id,"Protected")
 			captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
 			if protected and current_user == join_user_id and time() <= current_user_time+(captcha_timeout*60):
-				send_welcome_msg(bot,chat_id,update)
+				send_welcome_msg(bot,chat_id,update,chat_id)
 				save_config_property(chat_id,"Protection_Current_User",0)
 				save_config_property(chat_id,"Protection_Current_Time",0)
 				revoke_group_link(bot,chat_id)
@@ -894,195 +920,215 @@ def msg_notext(update: Update, context: CallbackContext):
 
 def msg_nocmd(update: Update, context: CallbackContext):
 	'''Non-command text messages handler'''
-	global to_delete_join_messages_list
-	global new_users_list
-	bot = context.bot
-	# Check for normal or edited message
-	msg = getattr(update, "message", None)
-	if msg is None:
-		msg = getattr(update, "edited_message", None)
-	# Handle user captcha if message is private
-	if msg.chat.type == "private":
-		try:
+	try:
+		global to_delete_join_messages_list
+		global new_users_list
+		bot = context.bot
+		# Check for normal or edited message
+		msg = getattr(update, "message", None)
+		if msg is None:
+			msg = getattr(update, "edited_message", None)
+		# Ignore if message comes from a channel
+		if msg.chat.type == "channel":
+			return
+		msg_text = getattr(msg, "text", None)
+		chat_id = msg.chat_id
+		user_id = msg.from_user.id
+		msg_id = msg.message_id
+		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
+			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
+			tlg_leave_chat(bot, msg.chat_id)
+			return
+		# If message doesnt has text, check for caption fields (for no text msgs and resended ones)
+
+		if msg_text is None:
+			msg_text = getattr(msg, "caption_html", None)
+		if msg_text is None:
+			msg_text = getattr(msg, "caption", None)
+		# Check if message starts with # -> print the trigger
+		if msg.chat.type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+				print(msg_text)
+		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
+			trigger_list = get_chat_config(chat_id,"Trigger_List")
+			trigger_msg = trigger_list.pop(msg_text[1:],"")
+			if len(trigger_msg) > 0:
+				tlg_send_selfdestruct_msg(bot, msg.chat_id, trigger_msg)
+				return
+		# Handle user captcha if message is private
+		if msg.chat.type == "private":
+			msg_text = getattr(msg, "text", None)
 			lang = get_chat_config(msg.chat_id, "Language")
-			if getattr(msg, "text", "") == str(get_chat_config(msg.chat_id,"User_Solve_Result")):
-				bot_msg =TEXT[lang]["USER_START"]
-				save_config_property(msg.chat_id,"Last_User_Solve",time())
-				protected_list = get_protected_list()
-				reply_markup = InlineKeyboardMarkup(protected_list)
-				bot.send_message(msg.chat_id, TEXT[lang]["USER_START"],reply_markup=reply_markup)
-			else:
-				bot_msg = TEXT[lang]["USER_CAPTCHA_FAILED"]
-				tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
-		except Exception as e:
-			print(e)
-		return
-	# Ignore if message comes from a channel
-	if msg.chat.type == "channel":
-		return
-	# Ignore if captcha protection is not enable in this chat
-	captcha_enable = get_chat_config(msg.chat_id, "Enabled")
-	if not captcha_enable:
-		return
-	# If message doesnt has text, check for caption fields (for no text msgs and resended ones)
-	msg_text = getattr(msg, "text", None)
-	if msg_text is None:
-		msg_text = getattr(msg, "caption_html", None)
-	if msg_text is None:
-		msg_text = getattr(msg, "caption", None)
-	# Check if message starts with # -> print the trigger
-	if msg_text[0] == get_chat_config(msg.chat_id, "Trigger_Char"):
-		trigger_list = get_chat_config(msg.chat_id,"Trigger_List")
-		trigger_msg = trigger_list.pop(msg_text[1:],"")
-		if len(trigger_msg) > 0:
-			tlg_send_selfdestruct_msg(bot, msg.chat_id, trigger_msg)
-	# Check if message has a text link (embedded url in text) and get it
-	msg_entities = getattr(msg, "entities", None)
-	if msg_entities is not None:
-		for entity in msg_entities:
-			url = getattr(entity, "url", None)
-			if url is not None:
-				if url != "":
-					if msg_text is None:
-						msg_text = url
-					else:
-						msg_text = "{} [{}]".format(msg_text, url)
-					break
-	# Get others message data
-	chat_id = msg.chat_id
-	user_id = msg.from_user.id
-	msg_id = msg.message_id
-	# Get and update chat data
-	chat_title = msg.chat.title
-	if chat_title:
-		save_config_property(chat_id, "Title", chat_title)
-	chat_link = msg.chat.username
-	if chat_link:
-		chat_link = "@{}".format(chat_link)
-		save_config_property(chat_id, "Link", chat_link)
-	user_name = msg.from_user.full_name
-	if msg.from_user.username is not None:
-		user_name = "{}(@{})".format(user_name, msg.from_user.username)
-	# Set default text message if not received
-	if msg_text is None:
-		msg_text = "[Not a text message]"
-	# Determine configured bot language in actual chat
-	lang = get_chat_config(chat_id, "Language")
-	# Search if this user is a new user that has not completed the captcha yet
-	i = 0
-	while i < len(new_users_list):
-		new_user = new_users_list[i]
-		# If not the user of this message, continue to next iteration
-		if new_user["user_id"] != user_id:
-			i = i + 1
-			continue
-		# If not the chat for expected user captcha number
-		if new_user["chat_id"] != chat_id:
-			i = i + 1
-			continue
-		# Check if the expected captcha solve number is in the message
-		printts("[{}] Received captcha reply from {}: {}".format(chat_id,
-				new_user["user_name"], msg_text))
-		if new_user["captcha_num"].lower() in msg_text.lower():
-			# Remove join messages
-			printts("[{}] Captcha solved by {}".format(chat_id, new_user["user_name"]))
-			j = 0
-			while j < len(to_delete_join_messages_list):
-				msg_del = to_delete_join_messages_list[j]
-				if (msg_del["user_id"] == user_id) and (msg_del["chat_id"] == chat_id):
-					# Uncomment next line to remove "user join" message too
-					#tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join0"].message_id)
-					tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join1"])
-					tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join2"])
-					if msg_del in to_delete_join_messages_list:
-						to_delete_join_messages_list.remove(msg_del)
-					break
-				j = j + 1
-			# Remove user captcha numbers message
-			tlg_delete_msg(bot, chat_id, msg.message_id)
-			bot_msg = TEXT[lang]["CAPTCHA_SOLVED"].format(new_user["user_name"])
-			# Set Bot to auto-remove captcha solved message too after 5mins
-			#            tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, 5)
-			if new_user in new_users_list:
-				new_users_list.remove(new_user)
-			send_welcome_msg(bot,chat_id,update)
-			# Check for custom welcome message and send it
-			#print(new_user)
-			#user_link = new_user["user_name"].split("@")
-			#user_link = "https://t.me/{}".format(user_link[len(user_link)-1])
-			#welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(new_user["user_name"],"'{}'".format( msg.from_user.full_name), new_user["user_id"],user_link)
-			#print(welcome_msg)
-			#if welcome_msg != "-":
-			#	tlg_send_selfdestruct_msg_in(bot, chat_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
-			# Check for send just text message option and apply user restrictions
-			restrict_non_text_msgs = get_chat_config(chat_id, "Restrict_Non_Text")
-			if restrict_non_text_msgs:
-				tlg_restrict_user(bot, chat_id, user_id, send_msg=True, send_media=False, 
-					send_stickers_gifs=False, insert_links=False, send_polls=False, 
-					invite_members=False, pin_messages=False, change_group_info=False)
-		# The provided message doesn't has the valid captcha number
-		else:
-			# Check if the message has 4 chars
 			if len(msg_text) == 4:
-				# Remove previously error message (if any)
-				for msg_del in to_delete_join_messages_list:
-					if (msg_del["user_id"] == user_id) and (msg_del["chat_id"] == chat_id):
-						tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join2"])
-				sent_msg_id = tlg_send_selfdestruct_msg(bot, chat_id,
-						TEXT[lang]["CAPTCHA_INCORRECT_0"])
-				update_to_delete_join_msg_id(chat_id, user_id, "msg_id_join2", sent_msg_id)
-				# Promise remove bad message data in one minute
-				tlg_msg_to_selfdestruct_in(msg, 1)
+				try:
+					if msg_text == str(get_chat_config(msg.chat_id,"User_Solve_Result")):
+						bot_msg =TEXT[lang]["USER_START"]
+						save_config_property(msg.chat_id,"Last_User_Solve",time())
+						protected_list = get_protected_list()
+						reply_markup = InlineKeyboardMarkup(protected_list)
+						bot.send_message(msg.chat_id, TEXT[lang]["USER_START"],reply_markup=reply_markup)
+					else:
+						bot_msg = TEXT[lang]["USER_CAPTCHA_FAILED"]
+						tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
+				except Exception as e:
+					print(traceback.format_exc())
 			else:
-				# Check if the message was just a 4 numbers msg
-				if is_int(msg_text):
+				bot_msg = TEXT[lang]["HELP"]
+				tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
+			return
+		# Ignore if captcha protection is not enable in this chat
+		captcha_enable = get_chat_config(msg.chat_id, "Enabled")
+		if not captcha_enable:
+			return
+		# Check if message has a text link (embedded url in text) and get it
+		msg_entities = getattr(msg, "entities", None)
+		if msg_entities is not None:
+			for entity in msg_entities:
+				url = getattr(entity, "url", None)
+				if url is not None:
+					if url != "":
+						if msg_text is None:
+							msg_text = url
+						else:
+							msg_text = "{} [{}]".format(msg_text, url)
+						break
+		# Get others message data
+
+		# Get and update chat data
+		chat_title = msg.chat.title
+		if chat_title:
+			save_config_property(chat_id, "Title", chat_title)
+		chat_link = msg.chat.username
+		if chat_link:
+			chat_link = "@{}".format(chat_link)
+			save_config_property(chat_id, "Link", chat_link)
+		user_name = msg.from_user.full_name
+		if msg.from_user.username is not None:
+			user_name = "{}(@{})".format(user_name, msg.from_user.username)
+		# Set default text message if not received
+		if msg_text is None:
+			msg_text = "[Not a text message]"
+		# Determine configured bot language in actual chat
+		lang = get_chat_config(chat_id, "Language")
+		# Search if this user is a new user that has not completed the captcha yet
+		i = 0
+		while i < len(new_users_list):
+			new_user = new_users_list[i]
+			# If not the user of this message, continue to next iteration
+			if new_user["user_id"] != user_id:
+				i = i + 1
+				continue
+			# If not the chat for expected user captcha number
+			if new_user["chat_id"] != chat_id:
+				i = i + 1
+				continue
+			# Check if the expected captcha solve number is in the message
+			printts("[{}] Received captcha reply from {}: {}".format(chat_id,
+					new_user["user_name"], msg_text))
+			if new_user["captcha_num"].lower() in msg_text.lower():
+				# Remove join messages
+				printts("[{}] Captcha solved by {}".format(chat_id, new_user["user_name"]))
+				j = 0
+				while j < len(to_delete_join_messages_list):
+					msg_del = to_delete_join_messages_list[j]
+					if (msg_del["user_id"] == user_id) and (msg_del["chat_id"] == chat_id):
+						# Uncomment next line to remove "user join" message too
+						#tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join0"].message_id)
+						tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join1"])
+						tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join2"])
+						if msg_del in to_delete_join_messages_list:
+							to_delete_join_messages_list.remove(msg_del)
+						break
+					j = j + 1
+				# Remove user captcha numbers message
+				tlg_delete_msg(bot, chat_id, msg.message_id)
+				bot_msg = TEXT[lang]["CAPTCHA_SOLVED"].format(new_user["user_name"])
+				# Set Bot to auto-remove captcha solved message too after 5mins
+				#            tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, 5)
+				if new_user in new_users_list:
+					new_users_list.remove(new_user)
+				send_welcome_msg(bot,chat_id,update,chat_id)
+				# Check for custom welcome message and send it
+				#print(new_user)
+				#user_link = new_user["user_name"].split("@")
+				#user_link = "https://t.me/{}".format(user_link[len(user_link)-1])
+				#welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(new_user["user_name"],"'{}'".format( msg.from_user.full_name), new_user["user_id"],user_link)
+				#print(welcome_msg)
+				#if welcome_msg != "-":
+				#	tlg_send_selfdestruct_msg_in(bot, chat_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
+				# Check for send just text message option and apply user restrictions
+				restrict_non_text_msgs = get_chat_config(chat_id, "Restrict_Non_Text")
+				if restrict_non_text_msgs:
+					tlg_restrict_user(bot, chat_id, user_id, send_msg=True, send_media=False, 
+						send_stickers_gifs=False, insert_links=False, send_polls=False, 
+						invite_members=False, pin_messages=False, change_group_info=False)
+			# The provided message doesn't has the valid captcha number
+			else:
+				# Check if the message has 4 chars
+				if len(msg_text) == 4:
 					# Remove previously error message (if any)
 					for msg_del in to_delete_join_messages_list:
 						if (msg_del["user_id"] == user_id) and (msg_del["chat_id"] == chat_id):
 							tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join2"])
 					sent_msg_id = tlg_send_selfdestruct_msg(bot, chat_id,
-							TEXT[lang]["CAPTCHA_INCORRECT_1"])
+							TEXT[lang]["CAPTCHA_INCORRECT_0"])
 					update_to_delete_join_msg_id(chat_id, user_id, "msg_id_join2", sent_msg_id)
 					# Promise remove bad message data in one minute
 					tlg_msg_to_selfdestruct_in(msg, 1)
 				else:
-					# Check if the message contains any URL
-					has_url = re.findall(CONST["REGEX_URLS"], msg_text)
-					# Check if the message contains any alias and if it is a group or channel alias
-					has_alias = False
-					#alias = ""
-					for word in msg_text.split():
-						if (len(word) > 1) and (word[0] == '@'):
-							has_alias = True
-							#alias = word
-							break
-					# Check if the detected alias is from a valid chat (commented due to getChat 
-					# request doesnt tell us if an alias is from an user, just group or channel)
-					#has_alias = False
-					#if has_alias:
-					#    chat_type = tlg_check_chat_type(bot, alias)
-					#    # A None value in chat_type is for not telegram chat found
-					#    if chat_type is not None:
-					#        has_alias = True
-					#    else:
-					#        has_alias = False
-					# Remove and notify if url/alias detection
-					if has_url or has_alias:
-						printts("[{}] Spammer detected: {}.".format(chat_id, new_user["user_name"]))
-						printts("[{}] Removing spam message: {}.".format(chat_id, msg_text))
-						# Try to remove the message and notify detection
-						rm_result = tlg_delete_msg(bot, chat_id, msg_id)
-						if rm_result == 1:
-							bot_msg = TEXT[lang]["SPAM_DETECTED_RM"].format(new_user["user_name"])
-						# Check if message cant be removed due to not delete msg privileges
-						if rm_result == -2:
-							bot_msg = TEXT[lang]["SPAM_DETECTED_NOT_RM"].format(new_user["user_name"])
-						# Get chat kick timeout and send spam detection message with autoremove
-						captcha_timeout = get_chat_config(chat_id, "Captcha_Time")
-						tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, captcha_timeout)
-		printts("[{}] Captcha reply process complete.".format(chat_id))
-		printts(" ")
-		break
+					# Check if the message was just a 4 numbers msg
+					if is_int(msg_text):
+						# Remove previously error message (if any)
+						for msg_del in to_delete_join_messages_list:
+							if (msg_del["user_id"] == user_id) and (msg_del["chat_id"] == chat_id):
+								tlg_delete_msg(bot, msg_del["chat_id"], msg_del["msg_id_join2"])
+						sent_msg_id = tlg_send_selfdestruct_msg(bot, chat_id,
+								TEXT[lang]["CAPTCHA_INCORRECT_1"])
+						update_to_delete_join_msg_id(chat_id, user_id, "msg_id_join2", sent_msg_id)
+						# Promise remove bad message data in one minute
+						tlg_msg_to_selfdestruct_in(msg, 1)
+					else:
+						# Check if the message contains any URL
+						has_url = re.findall(CONST["REGEX_URLS"], msg_text)
+						# Check if the message contains any alias and if it is a group or channel alias
+						has_alias = False
+						#alias = ""
+						for word in msg_text.split():
+							if (len(word) > 1) and (word[0] == '@'):
+								has_alias = True
+								#alias = word
+								break
+						# Check if the detected alias is from a valid chat (commented due to getChat 
+						# request doesnt tell us if an alias is from an user, just group or channel)
+						#has_alias = False
+						#if has_alias:
+						#    chat_type = tlg_check_chat_type(bot, alias)
+						#    # A None value in chat_type is for not telegram chat found
+						#    if chat_type is not None:
+						#        has_alias = True
+						#    else:
+						#        has_alias = False
+						# Remove and notify if url/alias detection
+						if has_url or has_alias:
+							printts("[{}] Spammer detected: {}.".format(chat_id, new_user["user_name"]))
+							printts("[{}] Removing spam message: {}.".format(chat_id, msg_text))
+							# Try to remove the message and notify detection
+							rm_result = tlg_delete_msg(bot, chat_id, msg_id)
+							if rm_result == 1:
+								bot_msg = TEXT[lang]["SPAM_DETECTED_RM"].format(new_user["user_name"])
+							# Check if message cant be removed due to not delete msg privileges
+							if rm_result == -2:
+								bot_msg = TEXT[lang]["SPAM_DETECTED_NOT_RM"].format(new_user["user_name"])
+							# Get chat kick timeout and send spam detection message with autoremove
+							captcha_timeout = get_chat_config(chat_id, "Captcha_Time")
+							tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, captcha_timeout)
+			printts("[{}] Captcha reply process complete.".format(chat_id))
+			printts(" ")
+			break
+	except Exception as e:
+		print(traceback.format_exc())
 
 
 def button_request_captcha(update: Update, context: CallbackContext):
@@ -1132,7 +1178,7 @@ def button_request_captcha(update: Update, context: CallbackContext):
 					save_config_property(chat_id,"User_Solve_Result",captcha["number"])
 					bot.answer_callback_query(query.id)
 			except Exception as e:
-				print(e)
+				print(traceback.format_exc())
 			return
 		# Add an unicode Left to Right Mark (LRM) to chat title (fix for arabic, hebrew, etc.)
 		chat_title = add_lrm(chat_title)
@@ -1171,7 +1217,7 @@ def button_request_captcha(update: Update, context: CallbackContext):
 		printts(" ")
 		bot.answer_callback_query(query.id)
 	except Exception as e:
-		print(e)
+		print(traceback.format_exc())
 
 
 
@@ -1202,7 +1248,7 @@ def cmd_start(update: Update, context: CallbackContext):
 			else:
 				tlg_send_selfdestruct_msg(bot, chat_id,TEXT[lang]["GROUP_NOT_ALLOWED"])
 	except Exception as e:
-		print(e)
+		print(traceback.format_exc())
 
 
 def cmd_connect(update: Update, context: CallbackContext):
@@ -1217,6 +1263,8 @@ def cmd_connect(update: Update, context: CallbackContext):
 		if chat_type != "private":
 			return
 		if len(args) == 1:
+			if not args[0][0] == "-":
+				args[0] = "-"+args[0]
 			if tlg_user_is_admin(bot, user_id, args[0]):
 				bot_msg = TEXT[lang]["CONNECTED"].format(args[0])
 				save_config_property(user_id,"Connected_Group",int(args[0]))
@@ -1233,7 +1281,7 @@ def cmd_connect(update: Update, context: CallbackContext):
 				bot_msg+="\n<code>{}</code>".format(group)
 		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
-		print(e)
+		print(traceback.format_exc())
 
 def cmd_disconnect(update: Update, context: CallbackContext):
 	bot = context.bot
@@ -1267,19 +1315,7 @@ def cmd_help(update: Update, context: CallbackContext):
 def cmd_commands(update: Update, context: CallbackContext):
 	'''Command /commands message handler'''
 	bot = context.bot
-	chat_id = update.message.chat_id
-	chat_type = update.message.chat.type
-	lang = get_chat_config(chat_id, "Language")
-	if chat_type == "private":
-		if get_chat_config(chat_id,"Connected_Group") < 0:
-			commands_text = TEXT[lang]["COMMANDS"]
-			bot.send_message(chat_id, commands_text)
-		commands_text = TEXT[lang]["USER_COMMANDS"]
-		bot.send_message(chat_id, commands_text)
-	else:
-		commands_text = TEXT[lang]["COMMANDS"]
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, commands_text)
+	send_command_list(bot,update)
 
 
 def cmd_language(update: Update, context: CallbackContext):
@@ -1464,8 +1500,44 @@ def cmd_captcha_mode(update: Update, context: CallbackContext):
 		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
 
-def cmd_welcome_msg(update: Update, context: CallbackContext):
+def cmd_welcome_message(update: Update, context: CallbackContext):
 	'''Command /welcome_msg message handler'''
+	bot = context.bot
+	args = context.args
+	chat_id = update.message.chat_id
+	user_id = update.message.from_user.id
+	chat_type = update.message.chat.type
+	print_chat = chat_id
+	if chat_type == "private":
+		connected = get_connected_group(bot,user_id)
+		if connected < 0:
+			chat_id = connected
+		else:
+			send_not_connected(bot,chat_id)
+			return
+	lang = get_chat_config(chat_id, "Language")
+	allow_command = True
+	if chat_type != "private":
+		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+		if not is_admin:
+			allow_command = False
+	if allow_command:
+		send_welcome_msg(bot,chat_id, update, print_chat)
+		return
+	elif not is_admin:
+		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+	else:
+		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+	if chat_type == "private":
+		bot.send_message(print_chat, bot_msg)
+	else:
+		tlg_msg_to_selfdestruct(update.message)
+		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+
+
+
+def cmd_set_welcome_message(update: Update, context: CallbackContext):
+	'''Command /set_welcome_msg message handler'''
 	bot = context.bot
 	args = context.args
 	chat_id = update.message.chat_id
@@ -1495,8 +1567,7 @@ def cmd_welcome_msg(update: Update, context: CallbackContext):
 				bot_msg = TEXT[lang]["WELCOME_MSG_UNSET"]
 			else:
 				bot_msg = TEXT[lang]["WELCOME_MSG_SET"]
-			if chat_type != "private":
-				save_config_property(chat_id, "Welcome_Msg", welcome_msg)
+			save_config_property(chat_id, "Welcome_Msg", welcome_msg)
 		else:
 			bot_msg = TEXT[lang]["WELCOME_MSG_SET_NOT_ARG"]
 	elif not is_admin:
@@ -1589,8 +1660,8 @@ def cmd_delete_trigger(update: Update, context: CallbackContext):
 		tlg_msg_to_selfdestruct(update.message)
 		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
-def cmd_triggers(update: Update, context: CallbackContext):
-	'''Command /triggers message handler'''
+def cmd_notes(update: Update, context: CallbackContext):
+	'''Command /notes message handler'''
 	bot = context.bot
 	args = context.args
 	chat_id = update.message.chat_id
@@ -1607,10 +1678,10 @@ def cmd_triggers(update: Update, context: CallbackContext):
 	trigger_list = get_chat_config(chat_id,"Trigger_List")
 	trigger_string = "<b>Note List</b>\n\n"
 	for key in trigger_list:
-		trigger_string+="- {}\n".format(key)
+		trigger_string+="- <code>{}{}</code>\n".format(CONST["INIT_TRIGGER_CHAR"],key)
 	bot_msg = trigger_string
 	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
+		bot.send_message(user_id, bot_msg, parse_mode=ParseMode.HTML)
 	else:
 		tlg_msg_to_selfdestruct(update.message)
 		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
@@ -1996,9 +2067,9 @@ def cmd_about(update: Update, context: CallbackContext):
 	bot = context.bot
 	chat_id = update.message.chat_id
 	lang = get_chat_config(chat_id, "Language")
-	bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["DEVELOPER"], CONST["REPOSITORY"],
+	bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
 		CONST["DEV_PAYPAL"], CONST["DEV_BTC"])
-	bot.send_message(chat_id, bot_msg)
+	bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 
 
 def cmd_captcha(update: Update, context: CallbackContext):
@@ -2042,7 +2113,7 @@ def cmd_protection(update: Update, context: CallbackContext):
 			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_ON"]
 		bot.send_message(print_id, bot_msg)
 	except Exception as e:
-		print(e)
+		print(traceback.format_exc())
 
 	
 ####################################################################################################
@@ -2241,8 +2312,8 @@ def main():
 	dp.add_handler(CommandHandler("time", cmd_time, pass_args=True))
 	dp.add_handler(CommandHandler("difficulty", cmd_difficulty, pass_args=True))
 	dp.add_handler(CommandHandler("captcha_mode", cmd_captcha_mode, pass_args=True))
-	dp.add_handler(CommandHandler("welcome_msg", cmd_welcome_msg, pass_args=True))
-
+	dp.add_handler(CommandHandler("set_welcome_msg", cmd_set_welcome_message, pass_args=True))
+	dp.add_handler(CommandHandler("welcome_msg", cmd_welcome_message))
 	dp.add_handler(CommandHandler("protection", cmd_protection))
 	dp.add_handler(CommandHandler("connect", cmd_connect, pass_args=True))
 	dp.add_handler(CommandHandler("disconnect", cmd_disconnect))
@@ -2250,7 +2321,7 @@ def main():
 
 	dp.add_handler(CommandHandler("add_note", cmd_add_trigger,pass_args=True))
 	dp.add_handler(CommandHandler("delete_note",cmd_delete_trigger,pass_args=True))
-	dp.add_handler(CommandHandler("notes",cmd_triggers,pass_args=True))
+	dp.add_handler(CommandHandler("notes",cmd_notes,pass_args=True))
 
 	dp.add_handler(CommandHandler("add_question", cmd_add_question, pass_args=True))
 	dp.add_handler(CommandHandler("delete_question", cmd_delete_question, pass_args=True))
