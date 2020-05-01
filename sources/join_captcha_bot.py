@@ -40,6 +40,8 @@ from telegram.ext import (CallbackContext, Updater, CommandHandler, MessageHandl
 from constants import CONST, TEXT
 from tsjson import TSjson
 from lib.multicolor_captcha_generator.img_captcha_gen import CaptchaGenerator
+from telegram.error import (TelegramError, Unauthorized, BadRequest, 
+                            TimedOut, ChatMigrated, NetworkError)
 
 ####################################################################################################
 
@@ -294,17 +296,23 @@ def get_protected_list():
 			protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return list(uniq(sorted(protected_list, reverse=True)))
 
-def send_welcome_msg(bot,chat_id, update, print_id):
-	msg = getattr(update, "message", None)
-	if msg:
-		user_name = msg.from_user.username
-		user_id = msg.from_user.id 
-		user_full_name = msg.from_user.first_name + " "+msg.from_user.last_name
-		user_link = "https://t.me/{}".format(user_name)
-		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
-		if welcome_msg != "-":
-			tlg_send_selfdestruct_msg_in(bot, print_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
+def get_user_full_name(msg):
+	return "{} {}".format(msg.from_user.first_name,msg.from_user.last_name)
 
+def send_welcome_msg(bot,chat_id, update, print_id):
+	try:
+		msg = getattr(update, "message", None)
+		if msg:
+			user_name = msg.from_user.username
+			user_id = msg.from_user.id 
+			user_full_name = get_user_full_name(msg)
+			user_link = "https://t.me/{}".format(user_name)
+			welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
+			welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
+			if welcome_msg != "-":
+				tlg_send_selfdestruct_msg_in(bot, print_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
+	except Exception as e:
+		print(traceback.format_exc())
 def kick_user(bot,chat_id,user_id,user_name):
 	print(chat_id,user_id)
 	kick_result = tlg_kick_user(bot, chat_id, user_id)
@@ -410,11 +418,11 @@ def send_command_list(bot,update):
 	chat_type = update.message.chat.type
 	lang = get_chat_config(chat_id, "Language")
 	if chat_type == "private":
+		commands_text = TEXT[lang]["USER_COMMANDS"]
+		bot.send_message(chat_id, commands_text,parse_mode=ParseMode.HTML)
 		if get_chat_config(chat_id,"Connected_Group") < 0:
 			commands_text = TEXT[lang]["COMMANDS"]
-			bot.send_message(chat_id, commands_text)
-		commands_text = TEXT[lang]["USER_COMMANDS"]
-		bot.send_message(chat_id, commands_text)
+			bot.send_message(chat_id, commands_text,parse_mode=ParseMode.HTML)
 	else:
 		commands_text = TEXT[lang]["COMMANDS"]
 		tlg_msg_to_selfdestruct(update.message)
@@ -1224,6 +1232,11 @@ def button_request_captcha(update: Update, context: CallbackContext):
 ####################################################################################################
 
 ### Received Telegram command messages handlers ###
+def error_callback(update, context):
+    try:
+        raise context.error
+    except Exception as e:
+    	print("Telegram exception",e)
 
 def cmd_start(update: Update, context: CallbackContext):
 	'''Command /start message handler'''
@@ -1316,6 +1329,8 @@ def cmd_commands(update: Update, context: CallbackContext):
 	'''Command /commands message handler'''
 	bot = context.bot
 	send_command_list(bot,update)
+	if update.message.chat.type != "private":
+		tlg_msg_to_selfdestruct(update.message)
 
 
 def cmd_language(update: Update, context: CallbackContext):
@@ -1822,9 +1837,8 @@ def cmd_restrict_non_text(update: Update, context: CallbackContext):
 		else:
 			send_not_connected(bot,chat_id)
 			return
-
-	# Set user command message to be deleted by Bot in default time
-	tlg_msg_to_selfdestruct(update.message)
+	else:
+		tlg_msg_to_selfdestruct(update.message)
 	# Get actual chat configured language
 	lang = get_chat_config(chat_id, "Language")
 	# Check if the user is an Admin of the chat
@@ -1835,17 +1849,8 @@ def cmd_restrict_non_text(update: Update, context: CallbackContext):
 	if not is_admin:
 		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["CMD_NOT_ALLOW"])
 		return
-	# Check for provided command argument
-	if len(args) == 0:
-		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_NOT_ARG"])
-		return
-	restrict_non_text_msgs = args[0]
-	# Check for valid expected argument
-	if restrict_non_text_msgs != "enable" and restrict_non_text_msgs != "disable":
-		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_NOT_ARG"])
-		return
 	# Enable/Disable just text messages option
-	if restrict_non_text_msgs == "enable":
+	if not get_chat_config(chat_id,"Restrict_Non_Text"):
 		save_config_property(chat_id, "Restrict_Non_Text", True)
 		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_ENABLED"])
 	else:
@@ -1868,6 +1873,7 @@ def cmd_add_ignore(update: Update, context: CallbackContext):
 		else:
 			send_not_connected(bot,chat_id)
 			return
+		
 	lang = get_chat_config(chat_id, "Language")
 	allow_command = True
 	if chat_type != "private":
@@ -1897,8 +1903,11 @@ def cmd_add_ignore(update: Update, context: CallbackContext):
 		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 	else:
 		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	tlg_msg_to_selfdestruct(update.message)
-	tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+	if chat_type == "private":
+		bot.send_message(print_id,bot_msg)
+	else:
+		tlg_msg_to_selfdestruct(update.message)
+		tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 
 
 def cmd_remove_ignore(update: Update, context: CallbackContext):
@@ -1942,8 +1951,11 @@ def cmd_remove_ignore(update: Update, context: CallbackContext):
 		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 	else:
 		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	tlg_msg_to_selfdestruct(update.message)
-	tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+	if chat_type == "private":
+		bot.send_message(print_id,bot_msg)
+	else:
+		tlg_msg_to_selfdestruct(update.message)
+		tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 
 
 def cmd_ignore_list(update: Update, context: CallbackContext):
@@ -1976,8 +1988,11 @@ def cmd_ignore_list(update: Update, context: CallbackContext):
 		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 	else:
 		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	tlg_msg_to_selfdestruct(update.message)
-	tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+	if chat_type == "private":
+		bot.send_message(print_id,bot_msg)
+	else:
+		tlg_msg_to_selfdestruct(update.message)
+		tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 
 
 def cmd_enable(update: Update, context: CallbackContext):
@@ -2069,7 +2084,11 @@ def cmd_about(update: Update, context: CallbackContext):
 	lang = get_chat_config(chat_id, "Language")
 	bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
 		CONST["DEV_PAYPAL"], CONST["DEV_BTC"])
-	bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
+	if update.message.chat.type == "private":
+		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
+	else:
+		tlg_msg_to_selfdestruct(update.message)
+		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)	
 
 
 def cmd_captcha(update: Update, context: CallbackContext):
@@ -2111,11 +2130,37 @@ def cmd_protection(update: Update, context: CallbackContext):
 		else:
 			save_config_property(chat_id,"Protected",True)
 			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_ON"]
-		bot.send_message(print_id, bot_msg)
+		if chat_type == "private":
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
 	except Exception as e:
 		print(traceback.format_exc())
 
-	
+def cmd_info(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		msg =  update.message
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+		username = msg.from_user.username
+		name = get_user_full_name(msg)
+		lang = get_chat_config(chat_id, "Language")
+		if chat_type == "private":
+			bot_msg = TEXT[lang]["USER_INFO"].format(name,username,user_id,chat_id)
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		print(traceback.format_exc())
 ####################################################################################################
 
 ### Main Loop Functions ###
@@ -2306,9 +2351,11 @@ def main():
 	dp = updater.dispatcher
 	# Set to dispatcher all expected commands messages handler
 	dp.add_handler(CommandHandler("start", cmd_start))
+	dp.add_handler(CommandHandler("info", cmd_info))
+
 	#dp.add_handler(CommandHandler("help", cmd_help))
 	dp.add_handler(CommandHandler("commands", cmd_commands))
-	dp.add_handler(CommandHandler("language", cmd_language, pass_args=True))
+	#dp.add_handler(CommandHandler("language", cmd_language, pass_args=True))
 	dp.add_handler(CommandHandler("time", cmd_time, pass_args=True))
 	dp.add_handler(CommandHandler("difficulty", cmd_difficulty, pass_args=True))
 	dp.add_handler(CommandHandler("captcha_mode", cmd_captcha_mode, pass_args=True))
