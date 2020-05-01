@@ -59,3 +59,20 @@ To ease usage, a run, status and kill scripts has been provided.
 ```
 ./kill
 ```
+
+### Testing:
+
+You can use telethon for automate testing. Only rudimentary logic gets tested, please extend it :p
+
+1. Get API_ID and API_HASH from my.telegram.org and export them:
+```
+export API_ID=your_api_id
+export API_HASH=your_api_hash
+```
+
+2. Run ```tests/test.py``` to register a test bot, create a group and setup admin permissions
+
+3. Copy bot token from ```tests/bot_data.json``` to ```sources/constants.py```,run bot for tests and perhaps allow bot in group
+(Todo: make this more comfortable)
+
+4. Run ```tests/test.py``` again to run the tests.

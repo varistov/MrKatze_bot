@@ -301,22 +301,26 @@ def get_user_full_name(msg):
 
 def send_welcome_msg(bot,chat_id, update, print_id):
 	valid = None
-	try:
-		msg = getattr(update, "message", None)
-		if msg:
-			user_name = msg.from_user.username
-			user_id = msg.from_user.id 
-			user_full_name = get_user_full_name(msg)
-			user_link = "https://t.me/{}".format(user_name)
-			welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
-			welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
-			if welcome_msg != "-":
-				valid = tlg_send_selfdestruct_msg_in(bot, print_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
-	except Exception as e:
-		print(traceback.format_exc())
-	return valid
+	msg = getattr(update, "message", None)
+	if msg:
+		user_name = msg.from_user.username
+		user_id = msg.from_user.id 
+		user_full_name = get_user_full_name(msg)
+		user_link = "https://t.me/{}".format(user_name)
+		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
+		welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
+		if welcome_msg != "-":
+			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML)
+			valid_id = int(getattr(valid, "message_id", 0))
+			if msg.chat.type == "group" and valid_id > 0:
+				old_message_ids = get_chat_config(chat_id,"Last_Welcome_Msg")
+				for old_message_id in old_message_ids:
+					if old_message_id > 0:
+						bot.delete_message(chat_id, old_message_id)
+				save_config_property(chat_id,"Last_Welcome_Msg",[valid_id,msg.message_id])
+	return valid_id
+
 def kick_user(bot,chat_id,user_id,user_name):
-	print(chat_id,user_id)
 	kick_result = tlg_kick_user(bot, chat_id, user_id)
 	if kick_result == 1:
 		# Kick success
@@ -364,38 +368,34 @@ def revoke_group_link(bot,chat_id):
 	return bot.exportChatInviteLink(chat_id)
 
 def request_group_link(bot,chat_id,user_id,lang,query_id):
-	try:
-		printts("[{}]: user {} requested group link".format(chat_id,user_id))
-		current_user = get_chat_config(chat_id,"Protection_Current_User")
-		current_user_time = get_chat_config(chat_id,"Protection_Current_Time")
-		captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
-		if current_user == "":
-			printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
+	printts("[{}]: user {} requested group link".format(chat_id,user_id))
+	current_user = get_chat_config(chat_id,"Protection_Current_User")
+	current_user_time = get_chat_config(chat_id,"Protection_Current_Time")
+	captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
+	if current_user == "":
+		printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
+		link = handle_request(bot,chat_id,user_id,captcha_timeout)
+		bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+		
+	elif current_user != user_id:
+		if time() > current_user_time+(captcha_timeout*60):
+			printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
 			link = handle_request(bot,chat_id,user_id,captcha_timeout)
 			bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
-			
-		elif current_user != user_id:
-			if time() > current_user_time+(captcha_timeout*60):
-				printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
-				link = handle_request(bot,chat_id,user_id,captcha_timeout)
-				bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
-			else:
-				mins_left = math.floor((current_user_time+(captcha_timeout*60)-time())/60)
-				printts("[{}]: user {} old link still active".format(chat_id,user_id))
-				bot_msg = TEXT[lang]["PROTECTION_IN_PROCESS"].format(mins_left)
 		else:
-			bot_msg = TEXT[lang]["PROTECTION_REQUESTED"]
-		tlg_send_selfdestruct_msg(bot,user_id,bot_msg)
-		bot.answer_callback_query(query_id)
-	except Exception as e:
-		print(traceback.format_exc())
+			mins_left = math.floor((current_user_time+(captcha_timeout*60)-time())/60)
+			printts("[{}]: user {} old link still active".format(chat_id,user_id))
+			bot_msg = TEXT[lang]["PROTECTION_IN_PROCESS"].format(mins_left)
+	else:
+		bot_msg = TEXT[lang]["PROTECTION_REQUESTED"]
+	tlg_send_selfdestruct_msg(bot,user_id,bot_msg)
+	bot.answer_callback_query(query_id)
 
 def list_admin_groups(bot,user_id):
 	admin_list = []
 	for group in files_config_list:
 		if tlg_user_is_admin(bot, user_id, group["ID"]):
 			admin_list.append(group["ID"])
-			print(group["ID"])
 	return uniq_list(admin_list)
 
 
@@ -460,7 +460,8 @@ def get_default_config_data():
 		("Connected_Group",0),
 		("Trigger_List", {}),
 		("Question_List", {}),
-		("Trigger_Char", CONST["INIT_TRIGGER_CHAR"])
+		("Trigger_Char", CONST["INIT_TRIGGER_CHAR"]),
+		("Last_Welcome_Msg", [0,0])
 	])
 	return config_data
 
@@ -716,7 +717,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 		# Leave the chat if it is a channel
 		msg = getattr(update, "message", None)
 		if msg.chat.type == "channel":
-			print("Bot try to be added to a channel")
+			send_to_admin("Bot leaved {} because no permissions!".format(chat_id))
 			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"], 1)
 			tlg_leave_chat(bot, chat_id)
 			return
@@ -969,7 +970,6 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			connected = get_connected_group(bot,user_id)
 			if connected < 0:
 				chat_id = connected
-				print(msg_text)
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
 			trigger_msg = trigger_list.pop(msg_text[1:],"")
@@ -981,18 +981,15 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			msg_text = getattr(msg, "text", None)
 			lang = get_chat_config(msg.chat_id, "Language")
 			if len(msg_text) == 4:
-				try:
-					if msg_text == str(get_chat_config(msg.chat_id,"User_Solve_Result")):
-						bot_msg =TEXT[lang]["USER_START"]
-						save_config_property(msg.chat_id,"Last_User_Solve",time())
-						protected_list = get_protected_list()
-						reply_markup = InlineKeyboardMarkup(protected_list)
-						bot.send_message(msg.chat_id, TEXT[lang]["USER_START"],reply_markup=reply_markup)
-					else:
-						bot_msg = TEXT[lang]["USER_CAPTCHA_FAILED"]
-						tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
-				except Exception as e:
-					print(traceback.format_exc())
+				if msg_text == str(get_chat_config(msg.chat_id,"User_Solve_Result")):
+					bot_msg =TEXT[lang]["USER_START"]
+					save_config_property(msg.chat_id,"Last_User_Solve",time())
+					protected_list = get_protected_list()
+					reply_markup = InlineKeyboardMarkup(protected_list)
+					bot.send_message(msg.chat_id, TEXT[lang]["USER_START"],reply_markup=reply_markup)
+				else:
+					bot_msg = TEXT[lang]["USER_CAPTCHA_FAILED"]
+					tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
 			else:
 				bot_msg = TEXT[lang]["HELP"]
 				tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
@@ -1070,11 +1067,9 @@ def msg_nocmd(update: Update, context: CallbackContext):
 					new_users_list.remove(new_user)
 				send_welcome_msg(bot,chat_id,update,chat_id)
 				# Check for custom welcome message and send it
-				#print(new_user)
 				#user_link = new_user["user_name"].split("@")
 				#user_link = "https://t.me/{}".format(user_link[len(user_link)-1])
 				#welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(new_user["user_name"],"'{}'".format( msg.from_user.full_name), new_user["user_id"],user_link)
-				#print(welcome_msg)
 				#if welcome_msg != "-":
 				#	tlg_send_selfdestruct_msg_in(bot, chat_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
 				# Check for send just text message option and apply user restrictions
@@ -1858,14 +1853,10 @@ def cmd_add_question(update: Update, context: CallbackContext):
 				question["q"] = args[1]
 				question["a"] = args[2]
 				question["wrongs"] = []
-				print(question)
 				for wrong in args[3:]:
 					question["wrongs"].append(wrong)
-				print(question)
 				questions = get_chat_config(chat_id, "Question_List")
-				print(questions)
 				questions[args[0]] = question
-				print(questions)
 				save_config_property(chat_id, "Question_List",questions)
 				bot_msg = TEXT[lang]["QUESTION_ADD"]
 			else:
