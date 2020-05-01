@@ -300,6 +300,7 @@ def get_user_full_name(msg):
 	return "{} {}".format(msg.from_user.first_name,msg.from_user.last_name)
 
 def send_welcome_msg(bot,chat_id, update, print_id):
+	valid = None
 	try:
 		msg = getattr(update, "message", None)
 		if msg:
@@ -310,9 +311,10 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 			welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
 			welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
 			if welcome_msg != "-":
-				tlg_send_selfdestruct_msg_in(bot, print_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
+				valid = tlg_send_selfdestruct_msg_in(bot, print_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
 	except Exception as e:
 		print(traceback.format_exc())
+	return valid
 def kick_user(bot,chat_id,user_id,user_name):
 	print(chat_id,user_id)
 	kick_result = tlg_kick_user(bot, chat_id, user_id)
@@ -427,6 +429,10 @@ def send_command_list(bot,update):
 		commands_text = TEXT[lang]["COMMANDS"]
 		tlg_msg_to_selfdestruct(update.message)
 		tlg_send_selfdestruct_msg(bot, chat_id, commands_text)	
+
+def send_to_admin(bot,chat_id, msg):
+	printts("[{}]: {}".format(chat_id,traceback.format_exc()))
+	bot.send_message(CONST["OWNER"],msg)
 ####################################################################################################
 
 ### JSON chat config file functions ###
@@ -699,231 +705,236 @@ def tlg_restrict_user(bot, chat_id, user_id, send_msg=None, send_media=None,
 
 def msg_new_user(update: Update, context: CallbackContext):
 	'''New member join the group event handler'''
-	global to_delete_join_messages_list
-	global new_users_list
-	bot = context.bot
-	# Get message data
-	chat_id = update.message.chat_id
-	# Determine configured bot language in actual chat
-	lang = get_chat_config(chat_id, "Language")
-	# Leave the chat if it is a channel
-	msg = getattr(update, "message", None)
-	if msg.chat.type == "channel":
-		print("Bot try to be added to a channel")
-		tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"], 1)
-		tlg_leave_chat(bot, chat_id)
-		return
-	if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
-			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
-			tlg_leave_chat(bot, msg.chat_id)
+	try:
+		global to_delete_join_messages_list
+		global new_users_list
+		bot = context.bot
+		# Get message data
+		chat_id = update.message.chat_id
+		# Determine configured bot language in actual chat
+		lang = get_chat_config(chat_id, "Language")
+		# Leave the chat if it is a channel
+		msg = getattr(update, "message", None)
+		if msg.chat.type == "channel":
+			print("Bot try to be added to a channel")
+			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"], 1)
+			tlg_leave_chat(bot, chat_id)
 			return
-	# For each new user that join or has been added
-	for join_user in update.message.new_chat_members:
-		join_user_id = join_user.id
-		# Get user name
-		if join_user.name is not None:
-			join_user_name = join_user.name
-		else:
-			join_user_name = join_user.full_name
-		# Add an unicode Left to Right Mark (LRM) to user name (names fix for arabic, hebrew, etc.)
-		join_user_name = add_lrm(join_user_name)
-		# If the user name is too long, truncate it to 35 characters
-		if len(join_user_name) > 35:
-			join_user_name = join_user_name[0:35]
-		# If the added user is myself (this Bot)
-		if bot.id == join_user_id:
-			# Get the language of the Telegram client software the Admin that has added the Bot 
-			# has, to assume this is the chat language and configure Bot language of this chat
-			admin_language = update.message.from_user.language_code[0:2].upper()
-			if admin_language not in TEXT:
-				admin_language = CONST["INIT_LANG"]
-			save_config_property(chat_id, "Language", admin_language)
-			# Get and save chat data
-			chat_title = update.message.chat.title
-			if chat_title:
-				save_config_property(chat_id, "Title", chat_title)
-			chat_link = update.message.chat.username
-			if chat_link:
-				chat_link = "@{}".format(chat_link)
-				save_config_property(chat_id, "Link", chat_link)
-			# Send bot join message
-			try:
-				bot.send_message(chat_id, TEXT[admin_language]["START"])
-			except Exception as e:
-				printts("[{}] {}".format(chat_id, str(e)))
-				pass
-		# The added user is not myself (not this Bot)
-		else:
-			printts(" ")
-			printts("[{}] New join detected: {} ({})".format(chat_id, join_user_name, join_user_id))
-			# Get and update chat data
-			chat_title = update.message.chat.title
-			if chat_title:
-				save_config_property(chat_id, "Title", chat_title)
-			# Add an unicode Left to Right Mark (LRM) to chat title (fix for arabic, hebrew, etc.)
-			chat_title = add_lrm(chat_title)
-			chat_link = update.message.chat.username
-			if chat_link:
-				chat_link = "@{}".format(chat_link)
-				save_config_property(chat_id, "Link", chat_link)
-			# Ignore Admins
-			if tlg_user_is_admin(bot, join_user_id, chat_id):
-				printts("[{}] User is an administrator. Skipping the captcha process.".format(chat_id))
-				continue
-			# Ignore if the member that has been join the group is a Bot
-			if join_user.is_bot:
-				printts("[{}] User is a Bot. Skipping the captcha process.".format(chat_id))
-				continue
-			# Ignore if the member that has joined is in ignore list
-			ignored_ids = get_chat_config(chat_id, "Ignore_List")
-			if join_user_id in ignored_ids:
-				printts("[{}] User is in ignore list. Skipping the captcha process.".format(chat_id))
-				continue
-			current_user = get_chat_config(chat_id,"Protection_Current_User")
-			current_user_time = get_chat_config(chat_id,"Protection_Current_Time")
-			protected = get_chat_config(chat_id,"Protected")
-			captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
-			if protected and current_user == join_user_id and time() <= current_user_time+(captcha_timeout*60):
-				send_welcome_msg(bot,chat_id,update,chat_id)
-				save_config_property(chat_id,"Protection_Current_User",0)
-				save_config_property(chat_id,"Protection_Current_Time",0)
-				revoke_group_link(bot,chat_id)
-				printts("[{}] User joined after protected authorization!".format(chat_id))
-				continue
-			elif protected:
-				kick_user(bot,chat_id,join_user_id,update.message.from_user.username)
-				revoke_group_link(bot,chat_id)
-				printts("[{}] User kicked because of protection!".format(chat_id))
-				continue
-			# Check and remove previous join messages of that user (if any)
-			i = 0
-			while i < len(to_delete_join_messages_list):
-				msg = to_delete_join_messages_list[i]
-				if (msg["user_id"] == join_user_id) and (msg["chat_id"] == chat_id):
-					tlg_delete_msg(bot, msg["chat_id"], msg["msg_id_join0"].message_id)
-					tlg_delete_msg(bot, msg["chat_id"], msg["msg_id_join1"])
-					tlg_delete_msg(bot, msg["chat_id"], msg["msg_id_join2"])
-					if msg in to_delete_join_messages_list:
-						to_delete_join_messages_list.remove(msg)
-				i = i + 1
-			# Ignore if the captcha protection is not enable in this chat
-			captcha_enable = get_chat_config(chat_id, "Enabled")
-			if not captcha_enable:
-				printts("[{}] Captcha is not enabled in this chat".format(chat_id))
-				continue
-			# Determine configured bot language in actual chat
-			captcha_level = get_chat_config(chat_id, "Captcha_Difficulty_Level")
-			captcha_chars_mode = get_chat_config(chat_id, "Captcha_Chars_Mode")
-			# Generate a pseudorandom captcha send it to telegram group and program message 
-			# selfdestruct
-			captcha = create_image_captcha(str(join_user_id), captcha_level, captcha_chars_mode)
-			captcha_timeout = get_chat_config(chat_id, "Captcha_Time")
-			img_caption = TEXT[lang]["NEW_USER_CAPTCHA_CAPTION"].format(join_user_name,
-					chat_title, str(captcha_timeout))
-			# Prepare inline keyboard button to let user request another catcha
-			keyboard = [[InlineKeyboardButton(TEXT[lang]["OTHER_CAPTCHA_BTN_TEXT"],
-					callback_data=join_user_id)]]
-			reply_markup = InlineKeyboardMarkup(keyboard)
-			send_problem = False
-			printts("[{}] Sending captcha message: {}...".format(chat_id, captcha["number"]))
-			try:
-				# Note: Img caption must be <= 1024 chars
-				sent_img_msg = bot.send_photo(chat_id=chat_id, photo=open(captcha["image"],"rb"),
-						reply_markup=reply_markup, caption=img_caption, timeout=20)
-			except Exception as e:
-				printts("[{}] {}".format(chat_id, str(e)))
-				if str(e) != "Timed out":
-					send_problem = True
-				else:
-					printts("sent_img_msg: {}".format(sent_img_msg))
-			# Remove sent captcha image file from file system
-			if path.exists(captcha["image"]):
-				remove(captcha["image"])
-			if not send_problem:
-				# Add sent image to self-destruct list
-				if not tlg_msg_to_selfdestruct_in(sent_img_msg, captcha_timeout+0.5):
-					printts("[{}] sent_img_msg does not have all expected attributes. "
-							"Scheduled for deletion".format(chat_id))
-				# Default user data
-				new_user = \
-				{
-					"chat_id": chat_id,
-					"user_id": join_user_id,
-					"user_name": join_user_name,
-					"captcha_num": captcha["number"],
-					"join_time": time(),
-					"join_retries": 1,
-					"kicked_ban": False
-				}
-				# Check if this user was before in the chat without solve the captcha
-				prev_user_data = None
-				for user in new_users_list:
-					if user["chat_id"] == new_user["chat_id"]:
-						if user["user_id"] == new_user["user_id"]:
-							prev_user_data = user
-				if prev_user_data is not None:
-					# Keep join retries and remove previous user data from list
-					new_user["join_retries"] = prev_user_data["join_retries"]
-					prev_pos = new_users_list.index(prev_user_data)
-					new_users_list[prev_pos] = new_user
-				else:
-					# Add new user data to lists
-					new_users_list.append(new_user)
-				# Add join messages to delete
-				msg = \
-				{
-					"chat_id": chat_id,
-					"user_id": join_user_id,
-					"msg_id_join0": update.message,
-					"msg_id_join1": sent_img_msg.message_id,
-					"msg_id_join2": None
-				}
-				to_delete_join_messages_list.append(msg)
-				printts("[{}] Captcha send process complete.".format(chat_id))
+		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
+				tlg_leave_chat(bot, msg.chat_id)
+				return
+		# For each new user that join or has been added
+		for join_user in update.message.new_chat_members:
+			join_user_id = join_user.id
+			# Get user name
+			if join_user.name is not None:
+				join_user_name = join_user.name
+			else:
+				join_user_name = join_user.full_name
+			# Add an unicode Left to Right Mark (LRM) to user name (names fix for arabic, hebrew, etc.)
+			join_user_name = add_lrm(join_user_name)
+			# If the user name is too long, truncate it to 35 characters
+			if len(join_user_name) > 35:
+				join_user_name = join_user_name[0:35]
+			# If the added user is myself (this Bot)
+			if bot.id == join_user_id:
+				# Get the language of the Telegram client software the Admin that has added the Bot 
+				# has, to assume this is the chat language and configure Bot language of this chat
+				admin_language = update.message.from_user.language_code[0:2].upper()
+				if admin_language not in TEXT:
+					admin_language = CONST["INIT_LANG"]
+				save_config_property(chat_id, "Language", admin_language)
+				# Get and save chat data
+				chat_title = update.message.chat.title
+				if chat_title:
+					save_config_property(chat_id, "Title", chat_title)
+				chat_link = update.message.chat.username
+				if chat_link:
+					chat_link = "@{}".format(chat_link)
+					save_config_property(chat_id, "Link", chat_link)
+				# Send bot join message
+				try:
+					bot.send_message(chat_id, TEXT[admin_language]["START"])
+				except Exception as e:
+					printts("[{}] {}".format(chat_id, str(e)))
+					pass
+			# The added user is not myself (not this Bot)
+			else:
 				printts(" ")
-
+				printts("[{}] New join detected: {} ({})".format(chat_id, join_user_name, join_user_id))
+				# Get and update chat data
+				chat_title = update.message.chat.title
+				if chat_title:
+					save_config_property(chat_id, "Title", chat_title)
+				# Add an unicode Left to Right Mark (LRM) to chat title (fix for arabic, hebrew, etc.)
+				chat_title = add_lrm(chat_title)
+				chat_link = update.message.chat.username
+				if chat_link:
+					chat_link = "@{}".format(chat_link)
+					save_config_property(chat_id, "Link", chat_link)
+				# Ignore Admins
+				if tlg_user_is_admin(bot, join_user_id, chat_id):
+					printts("[{}] User is an administrator. Skipping the captcha process.".format(chat_id))
+					continue
+				# Ignore if the member that has been join the group is a Bot
+				if join_user.is_bot:
+					printts("[{}] User is a Bot. Skipping the captcha process.".format(chat_id))
+					continue
+				# Ignore if the member that has joined is in ignore list
+				ignored_ids = get_chat_config(chat_id, "Ignore_List")
+				if join_user_id in ignored_ids:
+					printts("[{}] User is in ignore list. Skipping the captcha process.".format(chat_id))
+					continue
+				current_user = get_chat_config(chat_id,"Protection_Current_User")
+				current_user_time = get_chat_config(chat_id,"Protection_Current_Time")
+				protected = get_chat_config(chat_id,"Protected")
+				captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
+				if protected and current_user == join_user_id and time() <= current_user_time+(captcha_timeout*60):
+					send_welcome_msg(bot,chat_id,update,chat_id)
+					save_config_property(chat_id,"Protection_Current_User",0)
+					save_config_property(chat_id,"Protection_Current_Time",0)
+					revoke_group_link(bot,chat_id)
+					printts("[{}] User joined after protected authorization!".format(chat_id))
+					continue
+				elif protected:
+					kick_user(bot,chat_id,join_user_id,update.message.from_user.username)
+					revoke_group_link(bot,chat_id)
+					printts("[{}] User kicked because of protection!".format(chat_id))
+					continue
+				# Check and remove previous join messages of that user (if any)
+				i = 0
+				while i < len(to_delete_join_messages_list):
+					msg = to_delete_join_messages_list[i]
+					if (msg["user_id"] == join_user_id) and (msg["chat_id"] == chat_id):
+						tlg_delete_msg(bot, msg["chat_id"], msg["msg_id_join0"].message_id)
+						tlg_delete_msg(bot, msg["chat_id"], msg["msg_id_join1"])
+						tlg_delete_msg(bot, msg["chat_id"], msg["msg_id_join2"])
+						if msg in to_delete_join_messages_list:
+							to_delete_join_messages_list.remove(msg)
+					i = i + 1
+				# Ignore if the captcha protection is not enable in this chat
+				captcha_enable = get_chat_config(chat_id, "Enabled")
+				if not captcha_enable:
+					printts("[{}] Captcha is not enabled in this chat".format(chat_id))
+					continue
+				# Determine configured bot language in actual chat
+				captcha_level = get_chat_config(chat_id, "Captcha_Difficulty_Level")
+				captcha_chars_mode = get_chat_config(chat_id, "Captcha_Chars_Mode")
+				# Generate a pseudorandom captcha send it to telegram group and program message 
+				# selfdestruct
+				captcha = create_image_captcha(str(join_user_id), captcha_level, captcha_chars_mode)
+				captcha_timeout = get_chat_config(chat_id, "Captcha_Time")
+				img_caption = TEXT[lang]["NEW_USER_CAPTCHA_CAPTION"].format(join_user_name,
+						chat_title, str(captcha_timeout))
+				# Prepare inline keyboard button to let user request another catcha
+				keyboard = [[InlineKeyboardButton(TEXT[lang]["OTHER_CAPTCHA_BTN_TEXT"],
+						callback_data=join_user_id)]]
+				reply_markup = InlineKeyboardMarkup(keyboard)
+				send_problem = False
+				printts("[{}] Sending captcha message: {}...".format(chat_id, captcha["number"]))
+				try:
+					# Note: Img caption must be <= 1024 chars
+					sent_img_msg = bot.send_photo(chat_id=chat_id, photo=open(captcha["image"],"rb"),
+							reply_markup=reply_markup, caption=img_caption, timeout=20)
+				except Exception as e:
+					printts("[{}] {}".format(chat_id, str(e)))
+					if str(e) != "Timed out":
+						send_problem = True
+					else:
+						printts("sent_img_msg: {}".format(sent_img_msg))
+				# Remove sent captcha image file from file system
+				if path.exists(captcha["image"]):
+					remove(captcha["image"])
+				if not send_problem:
+					# Add sent image to self-destruct list
+					if not tlg_msg_to_selfdestruct_in(sent_img_msg, captcha_timeout+0.5):
+						printts("[{}] sent_img_msg does not have all expected attributes. "
+								"Scheduled for deletion".format(chat_id))
+					# Default user data
+					new_user = \
+					{
+						"chat_id": chat_id,
+						"user_id": join_user_id,
+						"user_name": join_user_name,
+						"captcha_num": captcha["number"],
+						"join_time": time(),
+						"join_retries": 1,
+						"kicked_ban": False
+					}
+					# Check if this user was before in the chat without solve the captcha
+					prev_user_data = None
+					for user in new_users_list:
+						if user["chat_id"] == new_user["chat_id"]:
+							if user["user_id"] == new_user["user_id"]:
+								prev_user_data = user
+					if prev_user_data is not None:
+						# Keep join retries and remove previous user data from list
+						new_user["join_retries"] = prev_user_data["join_retries"]
+						prev_pos = new_users_list.index(prev_user_data)
+						new_users_list[prev_pos] = new_user
+					else:
+						# Add new user data to lists
+						new_users_list.append(new_user)
+					# Add join messages to delete
+					msg = \
+					{
+						"chat_id": chat_id,
+						"user_id": join_user_id,
+						"msg_id_join0": update.message,
+						"msg_id_join1": sent_img_msg.message_id,
+						"msg_id_join2": None
+					}
+					to_delete_join_messages_list.append(msg)
+					printts("[{}] Captcha send process complete.".format(chat_id))
+					printts(" ")
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def msg_notext(update: Update, context: CallbackContext):
 	'''All non-text messages handler.'''
-	bot = context.bot
-	# Check for normal or edited message
-	msg = getattr(update, "message", None)
-	if msg is None:
-		msg = getattr(update, "edited_message", None)
-	# Ignore if message comes from a private chat
-	if msg.chat.type == "private":
-		return
-	# Ignore if message comes from a channel
-	if msg.chat.type == "channel":
-		return
-	# Ignore if captcha protection is not enable int his chat
-	captcha_enable = get_chat_config(msg.chat_id, "Enabled")
-	if not captcha_enable:
-		return
-	# Get message data
-	chat_id = msg.chat_id
-	user_id = msg.from_user.id
-	msg_id = msg.message_id
-	# Determine configured bot language in actual chat
-	lang = get_chat_config(chat_id, "Language")
-	# Search if this user is a new user that has not completed the captcha yet
-	i = 0
-	while i < len(new_users_list):
-		new_user = new_users_list[i]
-		# If not the user of this message, continue to next iteration
-		if new_user["user_id"] != user_id:
-			i = i + 1
-			continue
-		# If not the chat for expected user captcha number
-		if new_user["chat_id"] != chat_id:
-			i = i + 1
-			continue
-		# Remove send message and notify that not text messages are not allowed until solve captcha
-		printts("[{}] Removing non-text message sent by {}".format(chat_id, new_user["user_name"]))
-		tlg_delete_msg(bot, chat_id, msg_id)
-		bot_msg = TEXT[lang]["NOT_TEXT_MSG_ALLOWED"].format(new_user["user_name"])
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
-		break
+	try:
+		bot = context.bot
+		# Check for normal or edited message
+		msg = getattr(update, "message", None)
+		if msg is None:
+			msg = getattr(update, "edited_message", None)
+		# Ignore if message comes from a private chat
+		if msg.chat.type == "private":
+			return
+		# Ignore if message comes from a channel
+		if msg.chat.type == "channel":
+			return
+		# Ignore if captcha protection is not enable int his chat
+		captcha_enable = get_chat_config(msg.chat_id, "Enabled")
+		if not captcha_enable:
+			return
+		# Get message data
+		chat_id = msg.chat_id
+		user_id = msg.from_user.id
+		msg_id = msg.message_id
+		# Determine configured bot language in actual chat
+		lang = get_chat_config(chat_id, "Language")
+		# Search if this user is a new user that has not completed the captcha yet
+		i = 0
+		while i < len(new_users_list):
+			new_user = new_users_list[i]
+			# If not the user of this message, continue to next iteration
+			if new_user["user_id"] != user_id:
+				i = i + 1
+				continue
+			# If not the chat for expected user captcha number
+			if new_user["chat_id"] != chat_id:
+				i = i + 1
+				continue
+			# Remove send message and notify that not text messages are not allowed until solve captcha
+			printts("[{}] Removing non-text message sent by {}".format(chat_id, new_user["user_name"]))
+			tlg_delete_msg(bot, chat_id, msg_id)
+			bot_msg = TEXT[lang]["NOT_TEXT_MSG_ALLOWED"].format(new_user["user_name"])
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			break
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def msg_nocmd(update: Update, context: CallbackContext):
@@ -1136,7 +1147,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			printts(" ")
 			break
 	except Exception as e:
-		print(traceback.format_exc())
+		send_to_admin(bot,chat_id,e)
 
 
 def button_request_captcha(update: Update, context: CallbackContext):
@@ -1158,36 +1169,32 @@ def button_request_captcha(update: Update, context: CallbackContext):
 		lang = get_chat_config(chat_id, "Language")
 
 		if query.message.chat.type == "private":
-			try:
-				if query.data[0] == "p":
-					request_group_link(bot,query.data[1:],query.from_user.id,lang,query.id)
-				else:
-					printts("[{}] User {} requested a new captcha.".format(chat_id, usr_id))
-					# Prepare inline keyboard button to let user request another catcha
-					keyboard = [[InlineKeyboardButton(TEXT[lang]["OTHER_CAPTCHA_BTN_TEXT"],
-							callback_data=str(query.from_user.id))]]
-					reply_markup = InlineKeyboardMarkup(keyboard)
-					# Get captcha timeout and set image caption
-					captcha_timeout = CONST["INIT_CAPTCHA_TIME_MIN"]
-					img_caption = TEXT[lang]["USER_CAPTCHA"].format(query.message.chat.username,
-									str(captcha_timeout))
-					# Determine configured bot language in actual chat
-					captcha_level = CONST["INIT_CAPTCHA_DIFFICULTY_LEVEL"]
-					captcha_chars_mode = CONST["INIT_CAPTCHA_CHARS_MODE"]
-					# Generate a new captcha and edit previous captcha image message with this one
-					captcha = create_image_captcha(str(usr_id), captcha_level, captcha_chars_mode)
-					printts("[{}] Sending new captcha message: {}...".format(chat_id, captcha["number"]))
-					bot.edit_message_media(chat_id, message_id, media=InputMediaPhoto(
-							media=open(captcha["image"], "rb"), caption=img_caption),
-							reply_markup=reply_markup, timeout=20)
-					# Remove sent captcha image file from file system
-					if path.exists(captcha["image"]):
-						remove(captcha["image"])
-					save_config_property(chat_id,"User_Solve_Result",captcha["number"])
-					bot.answer_callback_query(query.id)
-			except Exception as e:
-				print(traceback.format_exc())
-			return
+			if query.data[0] == "p":
+				request_group_link(bot,query.data[1:],query.from_user.id,lang,query.id)
+			else:
+				printts("[{}] User {} requested a new captcha.".format(chat_id, usr_id))
+				# Prepare inline keyboard button to let user request another catcha
+				keyboard = [[InlineKeyboardButton(TEXT[lang]["OTHER_CAPTCHA_BTN_TEXT"],
+						callback_data=str(query.from_user.id))]]
+				reply_markup = InlineKeyboardMarkup(keyboard)
+				# Get captcha timeout and set image caption
+				captcha_timeout = CONST["INIT_CAPTCHA_TIME_MIN"]
+				img_caption = TEXT[lang]["USER_CAPTCHA"].format(query.message.chat.username,
+								str(captcha_timeout))
+				# Determine configured bot language in actual chat
+				captcha_level = CONST["INIT_CAPTCHA_DIFFICULTY_LEVEL"]
+				captcha_chars_mode = CONST["INIT_CAPTCHA_CHARS_MODE"]
+				# Generate a new captcha and edit previous captcha image message with this one
+				captcha = create_image_captcha(str(usr_id), captcha_level, captcha_chars_mode)
+				printts("[{}] Sending new captcha message: {}...".format(chat_id, captcha["number"]))
+				bot.edit_message_media(chat_id, message_id, media=InputMediaPhoto(
+						media=open(captcha["image"], "rb"), caption=img_caption),
+						reply_markup=reply_markup, timeout=20)
+				# Remove sent captcha image file from file system
+				if path.exists(captcha["image"]):
+					remove(captcha["image"])
+				save_config_property(chat_id,"User_Solve_Result",captcha["number"])
+				bot.answer_callback_query(query.id)
 		# Add an unicode Left to Right Mark (LRM) to chat title (fix for arabic, hebrew, etc.)
 		chat_title = add_lrm(chat_title)
 		# Search if this user is a new user that has not completed the captcha
@@ -1225,7 +1232,7 @@ def button_request_captcha(update: Update, context: CallbackContext):
 		printts(" ")
 		bot.answer_callback_query(query.id)
 	except Exception as e:
-		print(traceback.format_exc())
+		send_to_admin(bot,chat_id,e)
 
 
 
@@ -1236,7 +1243,8 @@ def error_callback(update, context):
     try:
         raise context.error
     except Exception as e:
-    	print("Telegram exception",e)
+    	chat_id = update.message.chat_id
+    	send_to_admin(bot,chat_id,e)
 
 def cmd_start(update: Update, context: CallbackContext):
 	'''Command /start message handler'''
@@ -1261,7 +1269,7 @@ def cmd_start(update: Update, context: CallbackContext):
 			else:
 				tlg_send_selfdestruct_msg(bot, chat_id,TEXT[lang]["GROUP_NOT_ALLOWED"])
 	except Exception as e:
-		print(traceback.format_exc())
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_connect(update: Update, context: CallbackContext):
@@ -1294,818 +1302,897 @@ def cmd_connect(update: Update, context: CallbackContext):
 				bot_msg+="\n<code>{}</code>".format(group)
 		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
-		print(traceback.format_exc())
+		send_to_admin(bot,chat_id,e)
 
 def cmd_disconnect(update: Update, context: CallbackContext):
-	bot = context.bot
-	chat_type = update.message.chat.type
-	user_id = update.message.from_user.id
-	lang = get_chat_config(user_id, "Language")
-	connected_group = get_chat_config(user_id,"Connected_Group")
-	if chat_type != "private":
-		return
-	if connected_group < 0:
-		bot_msg = TEXT[lang]["DISCONNECTED"]
-		save_config_property(user_id,"Connected_Group",0)
-	else:
-		bot_msg = TEXT[lang]["NOT_CONNECTED"]
-	bot.send_message(user_id, bot_msg)
+	try:
+		bot = context.bot
+		chat_type = update.message.chat.type
+		user_id = update.message.from_user.id
+		lang = get_chat_config(user_id, "Language")
+		connected_group = get_chat_config(user_id,"Connected_Group")
+		if chat_type != "private":
+			return
+		if connected_group < 0:
+			bot_msg = TEXT[lang]["DISCONNECTED"]
+			save_config_property(user_id,"Connected_Group",0)
+		else:
+			bot_msg = TEXT[lang]["NOT_CONNECTED"]
+		bot.send_message(user_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_help(update: Update, context: CallbackContext):
 	'''Command /help message handler'''
-	bot = context.bot
-	chat_id = update.message.chat_id
-	chat_type = update.message.chat.type
-	lang = get_chat_config(chat_id, "Language")
-	bot_msg = TEXT[lang]["HELP"]
-	if chat_type == "private":
-		bot.send_message(chat_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		chat_type = update.message.chat.type
+		lang = get_chat_config(chat_id, "Language")
+		bot_msg = TEXT[lang]["HELP"]
+		if chat_type == "private":
+			bot.send_message(chat_id, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_commands(update: Update, context: CallbackContext):
 	'''Command /commands message handler'''
-	bot = context.bot
-	send_command_list(bot,update)
-	if update.message.chat.type != "private":
-		tlg_msg_to_selfdestruct(update.message)
+	try:
+		bot = context.bot
+		send_command_list(bot,update)
+		if update.message.chat.type != "private":
+			tlg_msg_to_selfdestruct(update.message)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_language(update: Update, context: CallbackContext):
 	'''Command /language message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_chat = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			lang_provided = args[0].upper()
-			if lang_provided in TEXT:
-				if lang_provided != lang:
-					lang = lang_provided
-					save_config_property(chat_id, "Language", lang)
-					bot_msg = TEXT[lang]["LANG_CHANGE"]
-				else:
-					bot_msg = TEXT[lang]["LANG_SAME"].format(CONST["SUPPORTED_LANGS_CMDS"])
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_chat = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
 			else:
-				bot_msg = TEXT[lang]["LANG_BAD_LANG"].format(CONST["SUPPORTED_LANGS_CMDS"])
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				lang_provided = args[0].upper()
+				if lang_provided in TEXT:
+					if lang_provided != lang:
+						lang = lang_provided
+						save_config_property(chat_id, "Language", lang)
+						bot_msg = TEXT[lang]["LANG_CHANGE"]
+					else:
+						bot_msg = TEXT[lang]["LANG_SAME"].format(CONST["SUPPORTED_LANGS_CMDS"])
+				else:
+					bot_msg = TEXT[lang]["LANG_BAD_LANG"].format(CONST["SUPPORTED_LANGS_CMDS"])
+			else:
+				bot_msg = TEXT[lang]["LANG_NOT_ARG"].format(CONST["SUPPORTED_LANGS_CMDS"])
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			bot_msg = TEXT[lang]["LANG_NOT_ARG"].format(CONST["SUPPORTED_LANGS_CMDS"])
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_chat, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, print_chat, bot_msg)
-
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_chat, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_chat, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_time(update: Update, context: CallbackContext):
 	'''Command /time message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_chat = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			if is_int(args[0]):
-				new_time = int(args[0])
-				if new_time < 1:
-					new_time = 1
-				if new_time <= 120:
-					save_config_property(chat_id, "Captcha_Time", new_time)
-					bot_msg = TEXT[lang]["TIME_CHANGE"].format(new_time)
-				else:
-					bot_msg = TEXT[lang]["TIME_MAX_NOT_ALLOW"]
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_chat = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
 			else:
-				bot_msg = TEXT[lang]["TIME_NOT_NUM"]
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				if is_int(args[0]):
+					new_time = int(args[0])
+					if new_time < 1:
+						new_time = 1
+					if new_time <= 120:
+						save_config_property(chat_id, "Captcha_Time", new_time)
+						bot_msg = TEXT[lang]["TIME_CHANGE"].format(new_time)
+					else:
+						bot_msg = TEXT[lang]["TIME_MAX_NOT_ALLOW"]
+				else:
+					bot_msg = TEXT[lang]["TIME_NOT_NUM"]
+			else:
+				bot_msg = TEXT[lang]["TIME_NOT_ARG"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			bot_msg = TEXT[lang]["TIME_NOT_ARG"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_chat, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, print_chat, bot_msg)
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_chat, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_chat, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_difficulty(update: Update, context: CallbackContext):
 	'''Command /difficulty message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_chat = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			if is_int(args[0]):
-				new_difficulty = int(args[0])
-				if new_difficulty < 1:
-					new_difficulty = 1
-				if new_difficulty > 5:
-					new_difficulty = 5
-				save_config_property(chat_id, "Captcha_Difficulty_Level", new_difficulty)
-				bot_msg = TEXT[lang]["DIFFICULTY_CHANGE"].format(new_difficulty)
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_chat = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
 			else:
-				bot_msg = TEXT[lang]["DIFFICULTY_NOT_NUM"]
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				if is_int(args[0]):
+					new_difficulty = int(args[0])
+					if new_difficulty < 1:
+						new_difficulty = 1
+					if new_difficulty > 5:
+						new_difficulty = 5
+					save_config_property(chat_id, "Captcha_Difficulty_Level", new_difficulty)
+					bot_msg = TEXT[lang]["DIFFICULTY_CHANGE"].format(new_difficulty)
+				else:
+					bot_msg = TEXT[lang]["DIFFICULTY_NOT_NUM"]
+			else:
+				bot_msg = TEXT[lang]["DIFFICULTY_NOT_ARG"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			bot_msg = TEXT[lang]["DIFFICULTY_NOT_ARG"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_chat, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_chat, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_captcha_mode(update: Update, context: CallbackContext):
 	'''Command /captcha_mode message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_chat = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			new_captcha_mode = args[0]
-			if (new_captcha_mode == "nums") or (new_captcha_mode == "hex") \
-					or (new_captcha_mode == "ascii"):
-				save_config_property(chat_id, "Captcha_Chars_Mode", new_captcha_mode)
-				bot_msg = TEXT[lang]["CAPTCHA_MODE_CHANGE"].format(new_captcha_mode)
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_chat = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
 			else:
-				bot_msg = TEXT[lang]["CAPTCHA_MODE_INVALID"]
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				new_captcha_mode = args[0]
+				if (new_captcha_mode == "nums") or (new_captcha_mode == "hex") \
+						or (new_captcha_mode == "ascii"):
+					save_config_property(chat_id, "Captcha_Chars_Mode", new_captcha_mode)
+					bot_msg = TEXT[lang]["CAPTCHA_MODE_CHANGE"].format(new_captcha_mode)
+				else:
+					bot_msg = TEXT[lang]["CAPTCHA_MODE_INVALID"]
+			else:
+				bot_msg = TEXT[lang]["CAPTCHA_MODE_NOT_ARG"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			bot_msg = TEXT[lang]["CAPTCHA_MODE_NOT_ARG"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_chat, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_chat, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_welcome_message(update: Update, context: CallbackContext):
 	'''Command /welcome_msg message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_chat = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_chat = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			send_welcome_msg(bot,chat_id, update, print_chat)
 			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		send_welcome_msg(bot,chat_id, update, print_chat)
-		return
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_chat, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+		else:
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_chat, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 
 def cmd_set_welcome_message(update: Update, context: CallbackContext):
 	'''Command /set_welcome_msg message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_chat = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			welcome_msg = " ".join(args)
-			welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}").replace("$link","{3}")
-			welcome_msg = welcome_msg[:CONST["MAX_WELCOME_MSG_LENGTH"]]
-			if welcome_msg == "disable":
-				welcome_msg = '-'
-				bot_msg = TEXT[lang]["WELCOME_MSG_UNSET"]
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_chat = chat_id
+		valid = None
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
 			else:
-				bot_msg = TEXT[lang]["WELCOME_MSG_SET"]
-			save_config_property(chat_id, "Welcome_Msg", welcome_msg)
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
 		else:
-			bot_msg = TEXT[lang]["WELCOME_MSG_SET_NOT_ARG"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_chat, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+		if allow_command:
+			if len(args) >= 1:
+				old_welcome_msg = get_chat_config(chat_id,"Welcome_Msg")
+				welcome_msg = " ".join(args)
+				welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}").replace("$link","{3}")
+				welcome_msg = welcome_msg[:CONST["MAX_WELCOME_MSG_LENGTH"]]
+				if welcome_msg == "disable":
+					welcome_msg = '-'
+					bot_msg = TEXT[lang]["WELCOME_MSG_UNSET"]
+				else:
+					bot_msg = TEXT[lang]["WELCOME_MSG_SET"]
+				save_config_property(chat_id, "Welcome_Msg", welcome_msg)
+				valid = send_welcome_msg(bot,chat_id, update, print_chat)
+				if valid == None:
+					save_config_property(chat_id, "Welcome_Msg", old_welcome_msg)
+			else:
+				bot_msg = TEXT[lang]["WELCOME_MSG_SET_NOT_ARG"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+		else:
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if valid == None:
+			bot_msg = TEXT[lang]["WELCOME_MSG_FAILED"]
+		if chat_type == "private":
+			bot.send_message(print_chat, bot_msg)
+		else:		
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_add_trigger(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 2:
+				name = args[0]
+				message = " ".join(args[1:])
+				message = message.replace("<br>","\n")
+				trigger_list = get_chat_config(chat_id,"Trigger_List")
+				trigger_list[name]=message
+				save_config_property(chat_id, "Trigger_List",trigger_list)
+				bot_msg = TEXT[lang]["TRIGGER_ADD"]
+			else:
+				bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 2:
-			name = args[0]
-			message = " ".join(args[1:])
-			message = message.replace("<br>","\n")
-			trigger_list = get_chat_config(chat_id,"Trigger_List")
-			trigger_list[name]=message
-			save_config_property(chat_id, "Trigger_List",trigger_list)
-			bot_msg = TEXT[lang]["TRIGGER_ADD"]
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
 		else:
-			bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
-	elif not is_admin:
-		 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_delete_trigger(update: Update, context: CallbackContext):
 	'''Command /delete_trigger message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				trigger_list = get_chat_config(chat_id,"Trigger_List")
+				for trigger in args:
+					trigger_list.pop(trigger,"")
+				save_config_property(chat_id, "Trigger_List",trigger_list)
+				bot_msg = TEXT[lang]["TRIGGER_DELETE"]
+			else:
+				bot_msg = TEXT[lang]["TRIGGER_DELETE_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			trigger_list = get_chat_config(chat_id,"Trigger_List")
-			for trigger in args:
-				trigger_list.pop(trigger,"")
-			save_config_property(chat_id, "Trigger_List",trigger_list)
-			bot_msg = TEXT[lang]["TRIGGER_DELETE"]
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
 		else:
-			bot_msg = TEXT[lang]["TRIGGER_DELETE_NOT_ARG"]
-	elif not is_admin:
-		 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_notes(update: Update, context: CallbackContext):
 	'''Command /notes message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		trigger_list = get_chat_config(chat_id,"Trigger_List")
+		trigger_string = "<b>Note List</b>\n\n"
+		for key in trigger_list:
+			trigger_string+="- <code>{}{}</code>\n".format(CONST["INIT_TRIGGER_CHAR"],key)
+		bot_msg = trigger_string
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg, parse_mode=ParseMode.HTML)
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	trigger_list = get_chat_config(chat_id,"Trigger_List")
-	trigger_string = "<b>Note List</b>\n\n"
-	for key in trigger_list:
-		trigger_string+="- <code>{}{}</code>\n".format(CONST["INIT_TRIGGER_CHAR"],key)
-	bot_msg = trigger_string
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg, parse_mode=ParseMode.HTML)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_delete_question(update: Update, context: CallbackContext):
 	'''Command /delete_trigger message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:                                                          allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				question_list = get_chat_config(chat_id,"Question_List")
+				for question in args:
+					question_list.pop(question,"")
+				save_config_property(chat_id, "Question_List",question_list)
+				bot_msg = TEXT[lang]["QUESTION_DELETE"]
+			else:
+				bot_msg = TEXT[lang]["TRIGGER_DELETE_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:                                                          allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			question_list = get_chat_config(chat_id,"Question_List")
-			for question in args:
-				question_list.pop(question,"")
-			save_config_property(chat_id, "Question_List",question_list)
-			bot_msg = TEXT[lang]["QUESTION_DELETE"]
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
 		else:
-			bot_msg = TEXT[lang]["TRIGGER_DELETE_NOT_ARG"]
-	elif not is_admin:
-		 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 def cmd_questions(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:                                                          allow_command = False
+		if allow_command:
+			question_list = get_chat_config(chat_id,"Question_List")
+			question_string = "<b>Question List</b>\n\n"
+			for key in question_list:
+				question_string+="- {}\n".format(key)
+			bot_msg = question_string
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:                                                          allow_command = False
-	if allow_command:
-		question_list = get_chat_config(chat_id,"Question_List")
-		question_string = "<b>Question List</b>\n\n"
-		for key in question_list:
-			question_string+="- {}\n".format(key)
-		bot_msg = question_string
-	elif not is_admin:
-		 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, True)
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, True)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_add_question(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
-	bot = context.bot
-	args = context.args
-	args = " ".join(args).split("|")
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		args = " ".join(args).split("|")
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >=4:
+				question = {}
+				question["q"] = args[1]
+				question["a"] = args[2]
+				question["wrongs"] = []
+				print(question)
+				for wrong in args[3:]:
+					question["wrongs"].append(wrong)
+				print(question)
+				questions = get_chat_config(chat_id, "Question_List")
+				print(questions)
+				questions[args[0]] = question
+				print(questions)
+				save_config_property(chat_id, "Question_List",questions)
+				bot_msg = TEXT[lang]["QUESTION_ADD"]
+			else:
+				bot_msg = TEXT[lang]["QUESTION_ADD_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >=4:
-			question = {}
-			question["q"] = args[1]
-			question["a"] = args[2]
-			question["wrongs"] = []
-			print(question)
-			for wrong in args[3:]:
-				question["wrongs"].append(wrong)
-			print(question)
-			questions = get_chat_config(chat_id, "Question_List")
-			print(questions)
-			questions[args[0]] = question
-			print(questions)
-			save_config_property(chat_id, "Question_List",questions)
-			bot_msg = TEXT[lang]["QUESTION_ADD"]
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
 		else:
-			bot_msg = TEXT[lang]["QUESTION_ADD_NOT_ARG"]
-	elif not is_admin:
-		 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 def cmd_restrict_non_text(update: Update, context: CallbackContext):
 	'''Command /restrict_non_text message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_id = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
 		else:
-			send_not_connected(bot,chat_id)
+			tlg_msg_to_selfdestruct(update.message)
+		# Get actual chat configured language
+		lang = get_chat_config(chat_id, "Language")
+		# Check if the user is an Admin of the chat
+		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+		if is_admin is None:
+			tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["CAN_NOT_GET_ADMINS"])
 			return
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-	# Get actual chat configured language
-	lang = get_chat_config(chat_id, "Language")
-	# Check if the user is an Admin of the chat
-	is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-	if is_admin is None:
-		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["CAN_NOT_GET_ADMINS"])
-		return
-	if not is_admin:
-		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["CMD_NOT_ALLOW"])
-		return
-	# Enable/Disable just text messages option
-	if not get_chat_config(chat_id,"Restrict_Non_Text"):
-		save_config_property(chat_id, "Restrict_Non_Text", True)
-		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_ENABLED"])
-	else:
-		save_config_property(chat_id, "Restrict_Non_Text", False)
-		tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_DISABLED"])
+		if not is_admin:
+			tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["CMD_NOT_ALLOW"])
+			return
+		# Enable/Disable just text messages option
+		if not get_chat_config(chat_id,"Restrict_Non_Text"):
+			save_config_property(chat_id, "Restrict_Non_Text", True)
+			tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_ENABLED"])
+		else:
+			save_config_property(chat_id, "Restrict_Non_Text", False)
+			tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_DISABLED"])
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_add_ignore(update: Update, context: CallbackContext):
 	'''Command /add_ignore message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_id = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-		
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			ignore_list = get_chat_config(chat_id, "Ignore_List")
-			try: # conversion of an incorrect string to integer can return ValueError
-				user_id = int(args[0])
-				# Ignore list limit enforcement
-				if len(ignore_list) < CONST["IGNORE_LIST_MAX_ID"]:
-					if user_id not in ignore_list:
-						ignore_list.append(user_id)
-						save_config_property(chat_id, "Ignore_List", ignore_list)
-						bot_msg = TEXT[lang]["IGNORE_LIST_ADD_SUCCESS"]
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+			
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				ignore_list = get_chat_config(chat_id, "Ignore_List")
+				try: # conversion of an incorrect string to integer can return ValueError
+					user_id = int(args[0])
+					# Ignore list limit enforcement
+					if len(ignore_list) < CONST["IGNORE_LIST_MAX_ID"]:
+						if user_id not in ignore_list:
+							ignore_list.append(user_id)
+							save_config_property(chat_id, "Ignore_List", ignore_list)
+							bot_msg = TEXT[lang]["IGNORE_LIST_ADD_SUCCESS"]
+						else:
+							bot_msg = TEXT[lang]["IGNORE_LIST_ADD_DUPLICATED"]
 					else:
-						bot_msg = TEXT[lang]["IGNORE_LIST_ADD_DUPLICATED"]
-				else:
-					bot_msg = TEXT[lang]["IGNORE_LIST_ADD_LIMIT_EXCEEDED"]
-			except ValueError:
-				bot_msg = TEXT[lang]["IGNORE_LIST_ADD_INCORRECT_ID"]
+						bot_msg = TEXT[lang]["IGNORE_LIST_ADD_LIMIT_EXCEEDED"]
+				except ValueError:
+					bot_msg = TEXT[lang]["IGNORE_LIST_ADD_INCORRECT_ID"]
+			else:
+				bot_msg = TEXT[lang]["IGNORE_LIST_ADD_NOT_ARG"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			bot_msg = TEXT[lang]["IGNORE_LIST_ADD_NOT_ARG"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_id,bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_id,bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_remove_ignore(update: Update, context: CallbackContext):
 	'''Command /remove_ignore message handler'''
-	bot = context.bot
-	args = context.args
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_id = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
-		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		if len(args) >= 1:
-			ignore_list = get_chat_config(chat_id, "Ignore_List")
-			try: # conversion of an incorrect string to integer can return ValueError
-				user_id = int(args[0])
-				try: # user_id can be absent in ignore_list
-					index = ignore_list.index(user_id)
-					del ignore_list[index]
-					save_config_property(chat_id, "Ignore_List", ignore_list)
-					bot_msg = TEXT[lang]["IGNORE_LIST_REMOVE_SUCCESS"]
+	try:
+		bot = context.bot
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				ignore_list = get_chat_config(chat_id, "Ignore_List")
+				try: # conversion of an incorrect string to integer can return ValueError
+					user_id = int(args[0])
+					try: # user_id can be absent in ignore_list
+						index = ignore_list.index(user_id)
+						del ignore_list[index]
+						save_config_property(chat_id, "Ignore_List", ignore_list)
+						bot_msg = TEXT[lang]["IGNORE_LIST_REMOVE_SUCCESS"]
+					except ValueError:
+						bot_msg = TEXT[lang]["IGNORE_LIST_REMOVE_NOT_IN_LIST"]
 				except ValueError:
-					bot_msg = TEXT[lang]["IGNORE_LIST_REMOVE_NOT_IN_LIST"]
-			except ValueError:
-				bot_msg = TEXT[lang]["IGNORE_LIST_ADD_INCORRECT_ID"]
+					bot_msg = TEXT[lang]["IGNORE_LIST_ADD_INCORRECT_ID"]
+			else:
+				bot_msg = TEXT[lang]["IGNORE_LIST_REMOVE_NOT_ARG"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			bot_msg = TEXT[lang]["IGNORE_LIST_REMOVE_NOT_ARG"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_id,bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_id,bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_ignore_list(update: Update, context: CallbackContext):
 	'''Command /ignore_list message handler'''
-	bot = context.bot
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	print_id = chat_id
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			ignore_list = get_chat_config(chat_id, "Ignore_List")
+			if not ignore_list:
+				bot_msg = TEXT[lang]["IGNORE_LIST_EMPTY"]
+			else:
+				bot_msg = " ".join([str(x) for x in ignore_list])
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	allow_command = True
-	if chat_type != "private":
-		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-		if not is_admin:
-			allow_command = False
-	if allow_command:
-		ignore_list = get_chat_config(chat_id, "Ignore_List")
-		if not ignore_list:
-			bot_msg = TEXT[lang]["IGNORE_LIST_EMPTY"]
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(print_id,bot_msg)
 		else:
-			bot_msg = " ".join([str(x) for x in ignore_list])
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(print_id,bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_enable(update: Update, context: CallbackContext):
 	'''Command /enable message handler'''
-	bot = context.bot
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		enable = get_chat_config(chat_id, "Enabled")
+		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+		if is_admin:
+			if enable:
+				bot_msg = TEXT[lang]["ALREADY_ENABLE"]
+			else:
+				enable = True
+				save_config_property(chat_id, "Enabled", enable)
+				bot_msg = TEXT[lang]["ENABLE"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	enable = get_chat_config(chat_id, "Enabled")
-	is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-	if is_admin:
-		if enable:
-			bot_msg = TEXT[lang]["ALREADY_ENABLE"]
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
 		else:
-			enable = True
-			save_config_property(chat_id, "Enabled", enable)
-			bot_msg = TEXT[lang]["ENABLE"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_disable(update: Update, context: CallbackContext):
 	'''Command /disable message handler'''
-	bot = context.bot
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	chat_type = update.message.chat.type
-	if chat_type == "private":
-		connected = get_connected_group(bot,user_id)
-		if connected < 0:
-			chat_id = connected
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		enable = get_chat_config(chat_id, "Enabled")
+		is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+		if is_admin:
+			if enable:
+				enable = False
+				save_config_property(chat_id, "Enabled", enable)
+				bot_msg = TEXT[lang]["DISABLE"]
+			else:
+				bot_msg = TEXT[lang]["ALREADY_DISABLE"]
+		elif not is_admin:
+			bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
-			send_not_connected(bot,chat_id)
-			return
-	lang = get_chat_config(chat_id, "Language")
-	enable = get_chat_config(chat_id, "Enabled")
-	is_admin = tlg_user_is_admin(bot, user_id, chat_id)
-	if is_admin:
-		if enable:
-			enable = False
-			save_config_property(chat_id, "Enabled", enable)
-			bot_msg = TEXT[lang]["DISABLE"]
+			bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
 		else:
-			bot_msg = TEXT[lang]["ALREADY_DISABLE"]
-	elif not is_admin:
-		bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
-	else:
-		bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
-	if chat_type == "private":
-		bot.send_message(user_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_version(update: Update, context: CallbackContext):
 	'''Command /version message handler'''
-	bot = context.bot
-	chat_id = update.message.chat_id
-	chat_type = update.message.chat.type
-	lang = get_chat_config(chat_id, "Language")
-	bot_msg = TEXT[lang]["VERSION"].format(CONST["VERSION"])
-	if chat_type == "private":
-		bot.send_message(chat_id, bot_msg)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		chat_type = update.message.chat.type
+		lang = get_chat_config(chat_id, "Language")
+		bot_msg = TEXT[lang]["VERSION"].format(CONST["VERSION"])
+		if chat_type == "private":
+			bot.send_message(chat_id, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_about(update: Update, context: CallbackContext):
 	'''Command /about handler'''
-	bot = context.bot
-	chat_id = update.message.chat_id
-	lang = get_chat_config(chat_id, "Language")
-	bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
-		CONST["DEV_PAYPAL"], CONST["DEV_BTC"])
-	if update.message.chat.type == "private":
-		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
-	else:
-		tlg_msg_to_selfdestruct(update.message)
-		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)	
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		lang = get_chat_config(chat_id, "Language")
+		bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
+			CONST["OWNER_NAME"])
+		if update.message.chat.type == "private":
+			bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)	
+	except Exception as e:
+		send_to_admin(bot,chat_id,e)
 
 
 def cmd_captcha(update: Update, context: CallbackContext):
-	bot = context.bot
-	chat_id = update.message.chat_id
-	user_id = update.message.from_user.id
-	captcha_level = get_chat_config(chat_id, "Captcha_Difficulty_Level")
-	captcha_chars_mode = get_chat_config(chat_id, "Captcha_Chars_Mode")
-	# Generate a pseudorandom captcha send it to telegram group and program message 
-	# selfdestruct
-	captcha = create_image_captcha(str(user_id), captcha_level, captcha_chars_mode)
-	printts("[{}] Sending captcha message: {}...".format(chat_id, captcha["number"]))
 	try:
-		# Note: Img caption must be <= 1024 chars
-		bot.send_photo(chat_id=chat_id, photo=open(captcha["image"],"rb"), timeout=20)
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		captcha_level = get_chat_config(chat_id, "Captcha_Difficulty_Level")
+		captcha_chars_mode = get_chat_config(chat_id, "Captcha_Chars_Mode")
+		# Generate a pseudorandom captcha send it to telegram group and program message 
+		# selfdestruct
+		captcha = create_image_captcha(str(user_id), captcha_level, captcha_chars_mode)
+		printts("[{}] Sending captcha message: {}...".format(chat_id, captcha["number"]))
+		try:
+			# Note: Img caption must be <= 1024 chars
+			bot.send_photo(chat_id=chat_id, photo=open(captcha["image"],"rb"), timeout=20)
+		except Exception as e:
+			printts("[{}] {}".format(chat_id, str(e)))
 	except Exception as e:
-		printts("[{}] {}".format(chat_id, str(e)))
+		send_to_admin(bot,chat_id,e)
 
 def cmd_protection(update: Update, context: CallbackContext):
 	try:
@@ -2136,7 +2223,7 @@ def cmd_protection(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
 	except Exception as e:
-		print(traceback.format_exc())
+		send_to_admin(bot,chat_id,e)
 
 def cmd_info(update: Update, context: CallbackContext):
 	try:
@@ -2157,10 +2244,11 @@ def cmd_info(update: Update, context: CallbackContext):
 			bot_msg = TEXT[lang]["USER_INFO"].format(name,username,user_id,chat_id)
 			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
+			bot_msg = TEXT[lang]["USER_INFO"].format(name,username,user_id,chat_id)
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		print(traceback.format_exc())
+		send_to_admin(bot,chat_id,e)
 ####################################################################################################
 
 ### Main Loop Functions ###
