@@ -40,13 +40,13 @@ apt-get install libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-d
 
 2. Get the project and install JoinCaptchaBot requirements:
 ```
-git clone --recurse-submodules https://github.com/J-Rios/TLG_JoinCaptchaBot
-pip install -r TLG_JoinCaptchaBot/requirements.txt
+git clone --recurse-submodules https://github.com/v1nc/butter_bot/
+pip install -r butter_bot/requirements.txt
 ```
 
 3. Go to project sources and give execution permission to usage scripts:
 ```
-cd TLG_JoinCaptchaBot/sources
+cd butter_bot/sources
 chmod +x run status kill
 ```
 
@@ -54,7 +54,7 @@ chmod +x run status kill
 ```
 Change 'TOKEN' : 'XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ```
-
+5. Edit `OWNER` and `OWNER_NAME` to match your account details!
 ### Usage:
 
 To ease usage, a run, status and kill scripts has been provided.
