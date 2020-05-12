@@ -219,8 +219,8 @@ async def setup_bot(client):
 	tag = randomString(5)
 	name = 'ButterBot Testing Bot [{}]'.format(tag)
 	username = 'bbt_{}_bot'.format(tag)
-	description = ('This bot is only for running tests for python-telegram-bot'
-				   'and has no actual functionality.')
+	description = ('This bot is only for running tests for butter_bot'
+				   ' and has no actual functionality.')
 
 	token, payment_provider_token, super_group_id = await new_bot(
 		client,
