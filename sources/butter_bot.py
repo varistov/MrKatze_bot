@@ -716,7 +716,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 			return
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
 				send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"],chat_id))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 				return
 		# For each new user that join or has been added
@@ -951,7 +951,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		msg_id = msg.message_id
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
 			send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"],chat_id))
+			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(chat_id,CONST["REPOSITORY"]))
 			tlg_leave_chat(bot, msg.chat_id)
 			return
 		# If message doesnt has text, check for caption fields (for no text msgs and resended ones)
@@ -1266,7 +1266,7 @@ def cmd_start(update: Update, context: CallbackContext):
 				tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["START"])
 			else:
 				send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"],chat_id))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 	except Exception as e:
 		send_to_admin(bot,chat_id,e)
