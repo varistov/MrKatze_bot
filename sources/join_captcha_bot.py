@@ -297,8 +297,19 @@ def get_protected_list():
 	return list(uniq(sorted(protected_list, reverse=True)))
 
 def get_user_full_name(msg):
-	return "{} {}".format(msg.from_user.first_name,msg.from_user.last_name)
-
+	first_name = getattr(msg.from_user, "first_name", "")
+	last_name = getattr(msg.from_user, "last_name", "")
+	if last_name == None:
+		last_name=""
+	if len(last_name) == 0:
+		name = first_name
+	else:
+		name = "{} {}".format(first_name,last_name)
+	name_chars =''.join(e for e in name if e.isalnum())
+	print(name_chars)
+	if len(name_chars) ==0:
+		name = "'{}'".format(name)
+	return name
 def send_welcome_msg(bot,chat_id, update, print_id):
 	valid = None
 	msg = getattr(update, "message", None)
@@ -307,10 +318,10 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		user_id = msg.from_user.id 
 		user_full_name = get_user_full_name(msg)
 		user_link = "https://t.me/{}".format(user_name)
-		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"'{}'".format(user_full_name), user_id,user_link)
+		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"{}".format(user_full_name), user_id,user_link)
 		welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
 		if welcome_msg != "-":
-			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML)
+			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True)
 			valid_id = int(getattr(valid, "message_id", 0))
 			if msg.chat.type == "group" and valid_id > 0:
 				old_message_ids = get_chat_config(chat_id,"Last_Welcome_Msg")
@@ -432,7 +443,7 @@ def send_command_list(bot,update):
 
 def send_to_admin(bot,chat_id, msg):
 	printts("[{}]: {}".format(chat_id,traceback.format_exc()))
-	bot.send_message(CONST["OWNER"],msg)
+	bot.send_message(int(CONST["OWNER"]),msg)
 ####################################################################################################
 
 ### JSON chat config file functions ###
@@ -563,9 +574,9 @@ def tlg_send_selfdestruct_msg_in(bot, chat_id, message, time_delete_min, markdow
 	# Send the message
 	try:
 		if markdown:
-			sent_msg = bot.send_message(chat_id, message, parse_mode=ParseMode.HTML)
+			sent_msg = bot.send_message(chat_id, message, parse_mode=ParseMode.HTML, disable_web_page_preview=True, disable_notification=True)
 		else:
-			sent_msg = bot.send_message(chat_id, message)
+			sent_msg = bot.send_message(chat_id, message, disable_web_page_preview=True, disable_notification=True)
 		tlg_msg_to_selfdestruct_in(sent_msg, time_delete_min)
 		sent_msg_id = sent_msg["message_id"]
 	# It has been an unsuccesfull sent
@@ -717,13 +728,15 @@ def msg_new_user(update: Update, context: CallbackContext):
 		# Leave the chat if it is a channel
 		msg = getattr(update, "message", None)
 		if msg.chat.type == "channel":
-			send_to_admin("Bot leaved {} because no permissions!".format(chat_id))
-			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"], 1)
+			send_to_admin(bot,chat_id,"Bot leaved {} because no permissions!".format(chat_id))
+			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"]+" {}".format(chat_id))
 			tlg_leave_chat(bot, chat_id)
+			send_to_admin(bot,chat_id,chat_id)
 			return
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
 				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
+				send_to_admin(bot,chat_id,chat_id)
 				return
 		# For each new user that join or has been added
 		for join_user in update.message.new_chat_members:
@@ -956,6 +969,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		user_id = msg.from_user.id
 		msg_id = msg.message_id
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
+			send_to_admin(bot,chat_id,"Leaved {} because no permissions!".format(chat_id))
 			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
 			tlg_leave_chat(bot, msg.chat_id)
 			return
@@ -1241,6 +1255,13 @@ def error_callback(update, context):
     	chat_id = update.message.chat_id
     	send_to_admin(bot,chat_id,e)
 
+
+def cmd_kick(update: Update, context: CallbackContext):
+	bot= context.bot
+	chat_id = update.message.chat_id
+	user_id = update.message.from_user.id
+	send_to_admin(bot,chat_id,"kicked {}".format(user_id))
+	tlg_kick_user(bot,chat_id,user_id)
 def cmd_start(update: Update, context: CallbackContext):
 	'''Command /start message handler'''
 	try:
@@ -2443,6 +2464,9 @@ def main():
 	dp.add_handler(CommandHandler("protection", cmd_protection))
 	dp.add_handler(CommandHandler("connect", cmd_connect, pass_args=True))
 	dp.add_handler(CommandHandler("disconnect", cmd_disconnect))
+
+	#troll commands -> kick ;)
+	dp.add_handler(CommandHandler("kill_yourself",cmd_kick))
 
 
 	dp.add_handler(CommandHandler("add_note", cmd_add_trigger,pass_args=True))
