@@ -48,6 +48,9 @@
     "BOT_LEFT_GROUP":
         "I left group {} because I am not allowed to work there.",
 
+    "OWNER_ERROR_MSG":
+        "<b>ERROR:</b> <i>{}</i>\n\n<code>{}</code>",
+
     "GROUP_ALLOW_NO_ARGS":  
         "Please specify which group you want to allow!",
 
@@ -274,8 +277,11 @@
         "<b>v1nc ButterBot</b>\n<i>Real bot & log protection</i>\n\nRepo: <a href='{}'>github</a>\nInfo channel: @butter_bot_info\nDeveloper: {}\n\nBased on work by {}\n\n<i>Owner of this instance: @{}</i>",
 
     "COMMANDS":
-        "<b>List of group commands:</b>\n\n/start - Shows the initial information about the bot.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/time - Allows changing the time available to solve a captcha.\n\n/difficulty - Allows changing captcha difficulty level (from 1 to 5).\n\n/captcha_mode - Allows changing captcha character-mode (nums: just numbers, hex: numbers and A-F chars, ascii: numbers and A-Z chars).\n\n/set_welcome_msg - Allows configure a welcome message that is sent after resolving the captcha.\n\n/welcome_msg - Print the configured welcome message.\n\n/restrict_non_text - Enable apply restriction to new joined users to send non-text messages.\n\n/add_ignore - Do not ask an ignored user the captcha.\n\n/remove_ignore - Stop ignoring a user.\n\n/ignore_list - list of ignored users' IDs.\n\n/enable - Enable the captcha protection of the group.\n\n/disable - Disable the captcha protection of the group.\n\n/protection - Toggle bot log protection.\n\n/version - Show the version of the Bot.\n\n/about - Show about info.\n\n/notes - Show note list.\n\n/add_note - Add a note and message to the list.\n\n/delete_note - Delete a note from the list.",
+        "<b>List of group commands:</b>\n\n/start - Shows the initial information about the bot.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/time - Allows changing the time available to solve a captcha.\n\n/difficulty - Allows changing captcha difficulty level (from 1 to 5).\n\n/captcha_mode - Allows changing captcha character-mode (nums: just numbers, hex: numbers and A-F chars, ascii: numbers and A-Z chars).\n\n/set_welcome_msg - Allows configure a welcome message that is sent after resolving the captcha.\n\n/welcome_msg - Print the configured welcome message.\n\n/restrict_non_text - Enable apply restriction to new joined users to send non-text messages.\n\n/add_ignore - Do not ask an ignored user the captcha.\n\n/remove_ignore - Stop ignoring a user.\n\n/ignore_list - list of ignored users' IDs.\n\n/enable - Enable the captcha protection of the group.\n\n/disable - Disable the captcha protection of the group.\n\n/protection - Toggle bot log protection.\n\n/version - Show the version of the Bot.\n\n/about - Show about info.\n\n/notes - Show note list.\n\n/add_note - Add a note and message to the list.\n\n/delete_note - Delete a note from the list.\n\n/trigger_delete_notes - Trigger the config for auto deleting notes.\n\n/trigger_delete_welcome - Trigger the config for auto deleting welcome messages.",
 
     "USER_COMMANDS":
-        "<b>List of user commands:</b>\n\n/start - Request invitation links for protected groups.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/connect - Connect to a group you are admin of. This activates group commands in private chat.\n\n/disconnect - Disconnect from the connected group."
+        "<b>List of user commands:</b>\n\n/start - Request invitation links for protected groups.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/connect - Connect to a group you are admin of. This activates group commands in private chat.\n\n/disconnect - Disconnect from the connected group.",
+    
+    "OWNER_COMMANDS":
+        "<b>List of owner commands:</b>\n\n/allow_group - Allow me to work in the specified group(s).\n\n/disallow_group - Remove my permission to work in the specified group(s)."
 }

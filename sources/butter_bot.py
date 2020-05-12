@@ -215,6 +215,8 @@ def is_int(s):
 def add_lrm(str_to_modify):
 	'''Add a Left to Right Mark (LRM) at provided string start'''
 	barray = bytearray(b"\xe2\x80\x8e")
+	if str_to_modify == None:
+		return u''
 	str_to_modify = str_to_modify.encode("utf-8")
 	for b in str_to_modify:
 		barray.append(b)
@@ -265,18 +267,22 @@ def uniq(lst):
 
 def get_protected_list():
 	protected_list = []
+	group_id_list = []
 	for group in files_config_list:
-		enabled = get_chat_config(group["ID"],"Protected")
-		allowed = get_chat_config(group["ID"], "Allowed")
-		title = get_chat_config(group["ID"],"Title")
-		current_user = get_chat_config(group["ID"],"Protection_Current_User")
-		current_time = get_chat_config(group["ID"],"Protection_Current_Time")
-		captcha_timeout = get_chat_config(group["ID"],"Captcha_Time")
-		if enabled and allowed and title:
-			if current_user > 1 and time() > current_time + (captcha_timeout * 60):
-				save_config_property(group["ID"],"Protection_Current_User",0)
-			protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
-	return list(uniq(sorted(protected_list, reverse=True)))
+		if group["ID"] not in group_id_list:
+			group_id_list.append(group["ID"])
+			enabled = get_chat_config(group["ID"],"Protected")
+			allowed = get_chat_config(group["ID"], "Allowed")
+			title = get_chat_config(group["ID"],"Title")
+			current_user = get_chat_config(group["ID"],"Protection_Current_User")
+			current_time = get_chat_config(group["ID"],"Protection_Current_Time")
+			captcha_timeout = get_chat_config(group["ID"],"Captcha_Time")
+			if enabled and allowed and title:
+				if current_user > 1 and time() > current_time + (captcha_timeout * 60):
+					save_config_property(group["ID"],"Protection_Current_User",0)
+				print(group["ID"])
+				protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
+	return protected_list
 
 def get_user_full_name(msg):
 	first_name = getattr(msg.from_user, "first_name", "")
@@ -321,7 +327,7 @@ def kick_user(bot,chat_id,user_id,user_name):
 	kick_result = tlg_kick_user(bot, chat_id, user_id)
 	if kick_result == 1:
 		# Kick success
-		bot_msg = TEXT[lang]["NEW_USER_KICK"].format(user_name)
+		bot_msg = TEXT["EN"]["NEW_USER_KICK"].format(user_name)
 		# Set to auto-remove the kick message too, after a while
 		tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	else:
@@ -329,13 +335,13 @@ def kick_user(bot,chat_id,user_id,user_name):
 		printts("[{}] Unable to kick".format(chat_id))
 		if kick_result == -1:
 			# The user is not in the chat
-			bot_msg = TEXT[lang]['NEW_USER_KICK_NOT_IN_CHAT'].format(
+			bot_msg = TEXT["EN"]['NEW_USER_KICK_NOT_IN_CHAT'].format(
 					user_name)
 			# Set to auto-remove the kick message too, after a while
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 		elif kick_result == -2:
 			# Bot has no privileges to ban
-			bot_msg = TEXT[lang]['NEW_USER_KICK_NOT_RIGHTS'].format(
+			bot_msg = TEXT["EN"]['NEW_USER_KICK_NOT_RIGHTS'].format(
 					user_name)
 			# Send no rights for kick message without auto-remove
 			try:
@@ -344,7 +350,7 @@ def kick_user(bot,chat_id,user_id,user_name):
 				printts("[{}] {}".format(chat_id, str(e)))
 		else:
 			# For other reason, the Bot can't ban
-			bot_msg = TEXT[lang]['BOT_CANT_KICK'].format(user_name)
+			bot_msg = TEXT["EN"]['BOT_CANT_KICK'].format(user_name)
 			# Set to auto-remove the kick message too, after a while
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
@@ -372,7 +378,7 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 	current_user = get_chat_config(chat_id,"Protection_Current_User")
 	current_user_time = get_chat_config(chat_id,"Protection_Current_Time")
 	captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
-	if current_user == "":
+	if ((current_user == "" or current_user == 0) and time() > current_user_time+60) or is_owner(user_id):
 		printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
 		link = handle_request(bot,chat_id,user_id,captcha_timeout)
 		bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
@@ -388,23 +394,22 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 				mins_left = 1
 			printts("[{}]: user {} old link still active".format(chat_id,user_id))
 			bot_msg = TEXT[lang]["PROTECTION_IN_PROCESS"].format(mins_left)
+	elif time() > current_user_time+(captcha_timeout*60):
+		printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
+		link = handle_request(bot,chat_id,user_id,captcha_timeout)
+		bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
 	else:
 		bot_msg = TEXT[lang]["PROTECTION_REQUESTED"]
-	tlg_send_selfdestruct_msg(bot,user_id,bot_msg)
+	bot.send_message(user_id, bot_msg,parse_mode=ParseMode.HTML)
 	bot.answer_callback_query(query_id)
 
 def list_admin_groups(bot,user_id):
 	admin_list = []
 	for group in files_config_list:
-		if tlg_user_is_admin(bot, user_id, group["ID"]):
+		if group["ID"] not in admin_list and tlg_user_is_admin(bot, user_id, group["ID"]):
 			admin_list.append(group["ID"])
-	return uniq_list(admin_list)
+	return admin_list
 
-
-def uniq_list(seq): # Order preserving
-  ''' Modified version of Dave Kirby solution '''
-  seen = set()
-  return [x for x in seq if x not in seen and not seen.add(x)]
 
 def get_connected_group(bot,user_id):
 	connected_group = get_chat_config(user_id,"Connected_Group")
@@ -421,26 +426,30 @@ def send_command_list(bot,update):
 	chat_id = update.message.chat_id
 	chat_type = update.message.chat.type
 	lang = get_chat_config(chat_id, "Language")
+	user_id = update.message.from_user.id
 	if chat_type == "private":
 		commands_text = TEXT[lang]["USER_COMMANDS"]
 		bot.send_message(chat_id, commands_text,parse_mode=ParseMode.HTML)
 		if get_chat_config(chat_id,"Connected_Group") < 0:
-			commands_text = TEXT[lang]["COMMANDS"]
-			bot.send_message(chat_id, commands_text,parse_mode=ParseMode.HTML)
-	else:
+			commands_group = TEXT[lang]["COMMANDS"]
+			bot.send_message(chat_id, commands_group,parse_mode=ParseMode.HTML)
+		if is_owner(user_id):
+			commands_owner = TEXT[lang]["OWNER_COMMANDS"]
+			bot.send_message(chat_id, commands_owner,parse_mode=ParseMode.HTML)
+	elif tlg_user_is_admin(bot, user_id, chat_id):
 		commands_text = TEXT[lang]["COMMANDS"]
 		tlg_msg_to_selfdestruct(update.message)
 		tlg_send_selfdestruct_msg(bot, chat_id, commands_text)	
 
-def send_to_owner(bot,chat_id, msg):
+def send_to_owner(bot,chat_id, message):
 	try:
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
-		bot.send_message(int(CONST["OWNER"]),msg)
+		bot.send_message(CONST["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),traceback.format_exc()),parse_mode=ParseMode.HTML)
 	except Exception:
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
 
-def is_owner(msg):
-	return int(msg.from_user.id) == int(CONST["OWNER"])
+def is_owner(id):
+	return int(id) == int(CONST["OWNER"])
 ####################################################################################################
 
 ### JSON chat config file functions ###
@@ -808,7 +817,6 @@ def msg_new_user(update: Update, context: CallbackContext):
 				if protected and current_user == join_user_id and time() <= current_user_time+(captcha_timeout*60):
 					send_welcome_msg(bot,chat_id,update,chat_id)
 					save_config_property(chat_id,"Protection_Current_User",0)
-					save_config_property(chat_id,"Protection_Current_Time",0)
 					revoke_group_link(bot,chat_id)
 					printts("[{}] User joined after protected authorization!".format(chat_id))
 					continue
@@ -2332,7 +2340,7 @@ def cmd_allow_group(update: Update, context: CallbackContext):
 		lang = get_chat_config(chat_id, "Language")
 		args = context.args
 		if msg.chat.type == "private":
-			if is_owner(msg):
+			if is_owner(msg.from_user.id):
 				if len(args) >=1:
 					for group_id in args:
 						save_config_property(int(group_id),"Allowed",True)
@@ -2351,7 +2359,7 @@ def cmd_disallow_group(update: Update, context: CallbackContext):
 		lang = get_chat_config(chat_id, "Language")
 		args = context.args
 		if msg.chat.type == "private":
-			if is_owner(msg):
+			if is_owner(msg.from_user.id):
 				if len(args) >=1:
 					for group_id in args:
 						save_config_property(int(group_id),"Allowed",False)
