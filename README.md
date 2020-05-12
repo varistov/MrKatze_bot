@@ -13,6 +13,20 @@ I manage your telegram groups. I use [TLG_JoinCaptchaBot](https://github.com/J-R
 - auto-delete: I do not spam your group, messages are automatically deleted
 
 
+# Log Protection
+
+*You probably never saw a log protection like that before(I didnt).*
+
+*Any usual bot-protection solution verifies "users" after they joined your group. Any bad bot can dump your whole group history before it fails the verification.*
+
+__This solution verifies users before they can join your group!__
+
+- Set your group to private
+- Activate Log Protection with ```/protection```
+- Tell users to ask me for an invitation link in private chat
+- I will create an invitation link for the user if he passes the captcha
+- I revoke the invitation link after a timeout, or after the user joined your group
+- Only the verified user can join your group. If another user uses the generated link, I will kick him and revoke the link
 ### Installation:
 
 Note: Use Python 3 to install and run the Bot, Python 2 support could be broken.
@@ -26,13 +40,13 @@ apt-get install libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-d
 
 2. Get the project and install JoinCaptchaBot requirements:
 ```
-git clone --recurse-submodules https://github.com/J-Rios/TLG_JoinCaptchaBot
-pip install -r TLG_JoinCaptchaBot/requirements.txt
+git clone --recurse-submodules https://github.com/v1nc/butter_bot/
+pip install -r butter_bot/requirements.txt
 ```
 
 3. Go to project sources and give execution permission to usage scripts:
 ```
-cd TLG_JoinCaptchaBot/sources
+cd butter_bot/sources
 chmod +x run status kill
 ```
 
@@ -40,7 +54,7 @@ chmod +x run status kill
 ```
 Change 'TOKEN' : 'XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ```
-
+5. Edit `OWNER` and `OWNER_NAME` to match your account details!
 ### Usage:
 
 To ease usage, a run, status and kill scripts has been provided.
