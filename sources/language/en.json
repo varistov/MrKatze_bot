@@ -43,7 +43,10 @@
         "Only an Admin can use this command.",
 
     "GROUP_NOT_ALLOWED":
-        "<b>Error!</b>\n<i>Permission required</i>\n\nI am not allowed to run in this group!\nPlease host your own instance!\n\n<b>Find my code on <a href='{}'>github</a></b>",
+        "<b>Error!</b>\n<i>Permission required</i>\n\nI am not allowed to run in this group!\nPlease host your own instance!\n\n<b>group_id:</b><code>{}</code>\n\n<b>Find my code on <a href='{}'>github</a></b>",
+
+    "BOT_LEFT_GROUP":
+        "I left group {} because I am not allowed to work there.",
 
     "LANG_CHANGE":
         "Language changed to English.",

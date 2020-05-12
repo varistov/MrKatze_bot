@@ -1,23 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-'''
-Script:
-	join_captcha_bot.py
-Description:
-	Telegram Bot that send a captcha for each new user who join a group, and ban them if they 
-	can not solve the captcha in a specified time. This is an approach to deny access to groups of 
-	non-humans "users".
-Author:
-	Jose Rios Rubio
-Creation date:
-	09/09/2018
-Last modified date:
-	18/04/2020
-Version:
-	1.9.0
-'''
-
 ####################################################################################################
 
 ### Imported modules ###
@@ -728,15 +710,14 @@ def msg_new_user(update: Update, context: CallbackContext):
 		# Leave the chat if it is a channel
 		msg = getattr(update, "message", None)
 		if msg.chat.type == "channel":
-			send_to_admin(bot,chat_id,"Bot leaved {} because no permissions!".format(chat_id))
-			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT[lang]["BOT_LEAVE_CHANNEL"]+" {}".format(chat_id))
+			send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT["EN"]["BOT_LEAVE_CHANNEL"]+" {}".format(chat_id))
 			tlg_leave_chat(bot, chat_id)
-			send_to_admin(bot,chat_id,chat_id)
 			return
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
-				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
+				send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"],chat_id))
 				tlg_leave_chat(bot, msg.chat_id)
-				send_to_admin(bot,chat_id,chat_id)
 				return
 		# For each new user that join or has been added
 		for join_user in update.message.new_chat_members:
@@ -969,8 +950,8 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		user_id = msg.from_user.id
 		msg_id = msg.message_id
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
-			send_to_admin(bot,chat_id,"Leaved {} because no permissions!".format(chat_id))
-			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"]))
+			send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"],chat_id))
 			tlg_leave_chat(bot, msg.chat_id)
 			return
 		# If message doesnt has text, check for caption fields (for no text msgs and resended ones)
@@ -1260,8 +1241,9 @@ def cmd_kick(update: Update, context: CallbackContext):
 	bot= context.bot
 	chat_id = update.message.chat_id
 	user_id = update.message.from_user.id
-	send_to_admin(bot,chat_id,"kicked {}".format(user_id))
 	tlg_kick_user(bot,chat_id,user_id)
+	#maybe only insult user?
+
 def cmd_start(update: Update, context: CallbackContext):
 	'''Command /start message handler'''
 	try:
@@ -1283,7 +1265,9 @@ def cmd_start(update: Update, context: CallbackContext):
 			if get_chat_config(chat_id,"Allowed"):
 				tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["START"])
 			else:
-				tlg_send_selfdestruct_msg(bot, chat_id,TEXT[lang]["GROUP_NOT_ALLOWED"])
+				send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["REPOSITORY"],chat_id))
+				tlg_leave_chat(bot, msg.chat_id)
 	except Exception as e:
 		send_to_admin(bot,chat_id,e)
 
