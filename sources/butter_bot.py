@@ -424,8 +424,11 @@ def send_command_list(bot,update):
 		tlg_send_selfdestruct_msg(bot, chat_id, commands_text)	
 
 def send_to_admin(bot,chat_id, msg):
-	printts("[{}]: {}".format(chat_id,traceback.format_exc()))
-	bot.send_message(int(CONST["OWNER"]),msg)
+	try:
+		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
+		bot.send_message(int(CONST["OWNER"]),msg)
+	except Exception:
+		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
 ####################################################################################################
 
 ### JSON chat config file functions ###
