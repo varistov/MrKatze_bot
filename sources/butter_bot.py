@@ -313,7 +313,7 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		if welcome_msg != "-":
 			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True)
 			valid_id = int(getattr(valid, "message_id", 0))
-			if msg.chat.type == "group" and valid_id > 0:
+			if msg.chat.type == "group" and valid_id > 0 and get_chat_config(chat_id,"Delete_Welcome"):
 				old_message_ids = get_chat_config(chat_id,"Last_Welcome_Msg")
 				for old_message_id in old_message_ids:
 					try:
@@ -996,8 +996,11 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
 			trigger_msg = trigger_list.pop(msg_text[1:],"")
-			if len(trigger_msg) > 0:
+			if len(trigger_msg) > 0 and get_chat_config(chat_id,"Delete_Notes"):
 				tlg_send_selfdestruct_msg(bot, msg.chat_id, trigger_msg)
+				return
+			elif len(trigger_msg) > 0:
+				bot.send_message(msg.chat_id, trigger_msg)
 				return
 		# Handle user captcha if message is private
 		if msg.chat.type == "private":
