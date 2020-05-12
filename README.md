@@ -55,9 +55,10 @@ chmod +x run status kill
 Change 'TOKEN' : 'XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ```
 5. Edit `OWNER` and `OWNER_NAME` to match your account details!
-### Usage:
 
 6. Start a private chat with me, so I can notify you about stuff.
+
+### Usage:
 
 To ease usage, a run, status and kill scripts has been provided.
 
