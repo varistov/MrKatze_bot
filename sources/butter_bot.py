@@ -997,7 +997,8 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
 			trigger_msg = trigger_list.pop(msg_text[1:],"")
 			if len(trigger_msg) > 0 and get_chat_config(chat_id,"Delete_Notes"):
-				tlg_send_selfdestruct_msg(bot, msg.chat_id, trigger_msg)
+				tlg_send_selfdestruct_msg(bot, chat_id, trigger_msg)
+				tlg_delete_msg(bot, chat_id, msg.message_id)
 				return
 			elif len(trigger_msg) > 0:
 				bot.send_message(msg.chat_id, trigger_msg)
