@@ -384,6 +384,8 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 			bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
 		else:
 			mins_left = math.floor((current_user_time+(captcha_timeout*60)-time())/60)
+			if mins_left <=0:
+				mins_left = 1
 			printts("[{}]: user {} old link still active".format(chat_id,user_id))
 			bot_msg = TEXT[lang]["PROTECTION_IN_PROCESS"].format(mins_left)
 	else:
