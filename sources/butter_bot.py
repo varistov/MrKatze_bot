@@ -362,7 +362,10 @@ def revoke_group_link_delayed(bot,chat_id, expected_user, expected_time):
 			return bot.exportChatInviteLink(chat_id)
 
 def revoke_group_link(bot,chat_id):
-	return bot.exportChatInviteLink(chat_id)
+	try:
+		return bot.exportChatInviteLink(chat_id)
+	except BadRequest as e:
+		pass#handle no rights to revoke link
 
 def request_group_link(bot,chat_id,user_id,lang,query_id):
 	printts("[{}]: user {} requested group link".format(chat_id,user_id))
@@ -486,9 +489,12 @@ def get_chat_config(chat_id, param):
 	file = get_chat_config_file(chat_id)
 	if file:
 		config_data = file.read()
-		if (not config_data) or (param not in config_data):
+		if not config_data:
 			config_data = get_default_config_data()
 			save_config_property(chat_id, param, config_data[param])
+		if param not in config_data:
+			config_data[param] = get_default_config_data()[param]
+			save_config_property(chat_id,param,config_data[param])
 	else:
 		config_data = get_default_config_data()
 		save_config_property(chat_id, param, config_data[param])
@@ -2218,7 +2224,7 @@ def cmd_protection(update: Update, context: CallbackContext):
 		lang = get_chat_config(chat_id, "Language")
 		if current:
 			save_config_property(chat_id,"Protected",False)
-			revoke_group_link(bot,chat_id)
+			link = revoke_group_link(bot,chat_id)
 			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_OFF"]
 		else:
 			save_config_property(chat_id,"Protected",True)
