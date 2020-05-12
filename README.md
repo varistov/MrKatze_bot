@@ -38,7 +38,7 @@ To generate Captchas, the Bot uses [multicolor_captcha_generator library](https:
 apt-get install libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk
 ```
 
-2. Get the project and install JoinCaptchaBot requirements:
+2. Get the project and install my requirements:
 ```
 git clone --recurse-submodules https://github.com/v1nc/butter_bot/
 pip install -r butter_bot/requirements.txt

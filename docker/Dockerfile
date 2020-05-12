@@ -1,11 +1,11 @@
 FROM debian:buster
 
-MAINTAINER Marco Paganini <paganini@paganini.net>
+MAINTAINER v1nc <v1nc@reckendrees.systems>
 
-ARG BOT_PROJECT="captcha-bot"
-ARG BOT_USER="captcha-bot"
+ARG BOT_PROJECT="butter-bot"
+ARG BOT_USER="butter-bot"
 ARG BOT_HOME_DIR="/home/${BOT_USER}"
-ARG GITHUB_URL="https://github.com/J-Rios/TLG_JoinCaptchaBot"
+ARG GITHUB_URL="https://github.com/v1nc/butter_bot"
 
 # Change this to an user_id that does not own anything on the host.
 ARG UID=62999
@@ -37,13 +37,13 @@ RUN mkdir -p "${BOT_HOME_DIR}" && \
     # causes imports to fail.
     pip3 install python_telegram_bot==11.1.0 && \
     pip3 install Pillow==6.0.0 && \
-    cd TLG_JoinCaptchaBot/sources && \
+    cd butter_bot/sources && \
     sed -i -e "s/${INVALID_TOKEN}/${BOT_TOKEN}/g" constants.py && \
     sed -i -e "s/^\(\s\+\"INIT_LANG\"\)[^:]*:.*/\1 : \"${BOT_LANG}\",/g" constants.py && \
     chown -R "${BOT_USER}":"${BOT_USER}" "${BOT_HOME_DIR}" && \
-    echo "rm -f ./data/captchas/*; python3 -u join_captcha_bot.py" >run_in_docker && \
+    echo "rm -f ./data/captchas/*; python3 -u butter_bot.py" >run_in_docker && \
     chmod 755 kill run run_in_docker status && \
     cd ..
 
 
-CMD ["/bin/su", "-", "captcha-bot", "-c", "bash -c 'cd /home/captcha-bot/TLG_JoinCaptchaBot/sources && ./run_in_docker'"]
+CMD ["/bin/su", "-", "butter-bot", "-c", "bash -c 'cd /home/butter-bot/butter_bot/sources && ./run_in_docker'"]
