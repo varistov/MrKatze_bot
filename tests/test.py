@@ -268,6 +268,8 @@ async def run_tests(client, super_group_id):
 	await test_notes(client,super_group_id,TEXT)
 	await test_questions(client,super_group_id,TEXT)
 	await test_enable_toggle(client, super_group_id,TEXT)
+	await test_trigger_delete_welcome(client, super_group_id, TEXT)
+	await test_trigger_delete_notes(client, super_group_id, TEXT)
 
 async def test_start(client,sgi,TEXT):
 	async with client.conversation(sgi) as conv:
@@ -325,6 +327,26 @@ async def test_enable_toggle(client,sgi,TEXT):
 		await send_message_check_reply(conv, '/enable', TEXT["en"]["ALREADY_ENABLE"])
 		await send_message_check_reply(conv, '/disable', TEXT["en"]["DISABLE"])
 		await send_message_check_reply(conv, '/disable', TEXT["en"]["ALREADY_DISABLE"])
+
+async def test_trigger_delete_welcome(client,sgi,TEXT):
+	async with client.conversation(sgi) as conv:
+		try:
+			await send_message_check_reply(conv, '/trigger_delete_welcome', TEXT["en"]["DELETE_WELCOME_ON"])
+			await send_message_check_reply(conv, '/trigger_delete_welcome' , TEXT["en"]["DELETE_WELCOME_OFF"])
+		except AssertionError as e:
+			await send_message_check_reply(conv, '/trigger_delete_welcome' , TEXT["en"]["DELETE_WELCOME_ON"])
+			await send_message_check_reply(conv, '/trigger_delete_welcome' , TEXT["en"]["DELETE_WELCOME_OFF"])
+		
+
+async def test_trigger_delete_notes(client,sgi,TEXT):
+	async with client.conversation(sgi) as conv:
+		try:
+			await send_message_check_reply(conv, '/trigger_delete_notes', TEXT["en"]["DELETE_NOTES_ON"])
+			await send_message_check_reply(conv, '/trigger_delete_notes' , TEXT["en"]["DELETE_NOTES_OFF"])
+		except AssertionError as e:
+			await send_message_check_reply(conv, '/trigger_delete_notes' , TEXT["en"]["DELETE_NOTES_ON"])
+			await send_message_check_reply(conv, '/trigger_delete_notes' , TEXT["en"]["DELETE_NOTES_OFF"])
+
 
 ###real time tests end here###
 

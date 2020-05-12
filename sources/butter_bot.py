@@ -281,7 +281,7 @@ def get_protected_list():
 def get_user_full_name(msg):
 	first_name = getattr(msg.from_user, "first_name", "")
 	last_name = getattr(msg.from_user, "last_name", "")
-	if last_name == None:
+	if last_name == None or last_name == "None":
 		last_name=""
 	if len(last_name) == 0:
 		name = first_name
@@ -292,10 +292,12 @@ def get_user_full_name(msg):
 	if len(name_chars) ==0:
 		name = "'{}'".format(name)
 	return name
+
 def send_welcome_msg(bot,chat_id, update, print_id):
 	valid = None
 	msg = getattr(update, "message", None)
 	if msg:
+		tlg_msg_to_selfdestruct(msg)
 		user_name = msg.from_user.username
 		user_id = msg.from_user.id 
 		user_full_name = get_user_full_name(msg)
@@ -308,9 +310,11 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 			if msg.chat.type == "group" and valid_id > 0:
 				old_message_ids = get_chat_config(chat_id,"Last_Welcome_Msg")
 				for old_message_id in old_message_ids:
-					if old_message_id > 0:
+					try:
 						bot.delete_message(chat_id, old_message_id)
-				save_config_property(chat_id,"Last_Welcome_Msg",[valid_id,msg.message_id])
+					except Exception as f:
+						pass
+				save_config_property(chat_id,"Last_Welcome_Msg",[valid_id])
 	return valid_id
 
 def kick_user(bot,chat_id,user_id,user_name):
@@ -423,12 +427,15 @@ def send_command_list(bot,update):
 		tlg_msg_to_selfdestruct(update.message)
 		tlg_send_selfdestruct_msg(bot, chat_id, commands_text)	
 
-def send_to_admin(bot,chat_id, msg):
+def send_to_owner(bot,chat_id, msg):
 	try:
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
 		bot.send_message(int(CONST["OWNER"]),msg)
 	except Exception:
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
+
+def is_owner(msg):
+	return int(msg.from_user.id) == int(CONST["OWNER"])
 ####################################################################################################
 
 ### JSON chat config file functions ###
@@ -448,6 +455,8 @@ def get_default_config_data():
 		("Welcome_Msg", CONST["INIT_WELCOME_MSG"]),
 		("Last_User_Solve", 0),
 		("User_Solve_Result", "0"),
+		("Delete_Welcome", True),
+		("Delete_Notes", True),
 		("Ignore_List", []),
 		("Allowed",False),
 		("Protected",False),
@@ -713,12 +722,12 @@ def msg_new_user(update: Update, context: CallbackContext):
 		# Leave the chat if it is a channel
 		msg = getattr(update, "message", None)
 		if msg.chat.type == "channel":
-			send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+			send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
 			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT["EN"]["BOT_LEAVE_CHANNEL"]+" {}".format(chat_id))
 			tlg_leave_chat(bot, chat_id)
 			return
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
-				send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+				send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
 				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 				return
@@ -887,7 +896,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 					printts("[{}] Captcha send process complete.".format(chat_id))
 					printts(" ")
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def msg_notext(update: Update, context: CallbackContext):
 	'''All non-text messages handler.'''
@@ -932,7 +941,7 @@ def msg_notext(update: Update, context: CallbackContext):
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 			break
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def msg_nocmd(update: Update, context: CallbackContext):
@@ -952,8 +961,8 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		chat_id = msg.chat_id
 		user_id = msg.from_user.id
 		msg_id = msg.message_id
-		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
-			send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+		if msg.chat.type != "private" and not get_chat_config(chat_id,"Allowed"):
+			send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
 			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(chat_id,CONST["REPOSITORY"]))
 			tlg_leave_chat(bot, msg.chat_id)
 			return
@@ -1140,7 +1149,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			printts(" ")
 			break
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def button_request_captcha(update: Update, context: CallbackContext):
@@ -1225,7 +1234,7 @@ def button_request_captcha(update: Update, context: CallbackContext):
 		printts(" ")
 		bot.answer_callback_query(query.id)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 
@@ -1237,7 +1246,7 @@ def error_callback(update, context):
         raise context.error
     except Exception as e:
     	chat_id = update.message.chat_id
-    	send_to_admin(bot,chat_id,e)
+    	send_to_owner(bot,chat_id,e)
 
 
 def cmd_kick(update: Update, context: CallbackContext):
@@ -1268,11 +1277,11 @@ def cmd_start(update: Update, context: CallbackContext):
 			if get_chat_config(chat_id,"Allowed"):
 				tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["START"])
 			else:
-				send_to_admin(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
+				send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
 				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_connect(update: Update, context: CallbackContext):
@@ -1287,8 +1296,6 @@ def cmd_connect(update: Update, context: CallbackContext):
 		if chat_type != "private":
 			return
 		if len(args) == 1:
-			if not args[0][0] == "-":
-				args[0] = "-"+args[0]
 			if tlg_user_is_admin(bot, user_id, args[0]):
 				bot_msg = TEXT[lang]["CONNECTED"].format(args[0])
 				save_config_property(user_id,"Connected_Group",int(args[0]))
@@ -1305,7 +1312,7 @@ def cmd_connect(update: Update, context: CallbackContext):
 				bot_msg+="\n<code>{}</code>".format(group)
 		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_disconnect(update: Update, context: CallbackContext):
 	try:
@@ -1323,7 +1330,7 @@ def cmd_disconnect(update: Update, context: CallbackContext):
 			bot_msg = TEXT[lang]["NOT_CONNECTED"]
 		bot.send_message(user_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_help(update: Update, context: CallbackContext):
 	'''Command /help message handler'''
@@ -1339,7 +1346,7 @@ def cmd_help(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_commands(update: Update, context: CallbackContext):
@@ -1350,7 +1357,7 @@ def cmd_commands(update: Update, context: CallbackContext):
 		if update.message.chat.type != "private":
 			tlg_msg_to_selfdestruct(update.message)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_language(update: Update, context: CallbackContext):
@@ -1399,7 +1406,7 @@ def cmd_language(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_chat, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_time(update: Update, context: CallbackContext):
 	'''Command /time message handler'''
@@ -1448,7 +1455,7 @@ def cmd_time(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_chat, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_difficulty(update: Update, context: CallbackContext):
@@ -1497,7 +1504,7 @@ def cmd_difficulty(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_captcha_mode(update: Update, context: CallbackContext):
@@ -1543,7 +1550,7 @@ def cmd_captcha_mode(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_welcome_message(update: Update, context: CallbackContext):
@@ -1581,7 +1588,7 @@ def cmd_welcome_message(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 
@@ -1638,7 +1645,7 @@ def cmd_set_welcome_message(update: Update, context: CallbackContext):
 		else:		
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_add_trigger(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
@@ -1682,7 +1689,7 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_delete_trigger(update: Update, context: CallbackContext):
 	'''Command /delete_trigger message handler'''
@@ -1724,7 +1731,7 @@ def cmd_delete_trigger(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_notes(update: Update, context: CallbackContext):
 	'''Command /notes message handler'''
@@ -1753,7 +1760,7 @@ def cmd_notes(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_delete_question(update: Update, context: CallbackContext):
 	'''Command /delete_trigger message handler'''
@@ -1794,7 +1801,7 @@ def cmd_delete_question(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 def cmd_questions(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
 	try:
@@ -1831,7 +1838,7 @@ def cmd_questions(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, True)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_add_question(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
@@ -1879,7 +1886,7 @@ def cmd_add_question(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_restrict_non_text(update: Update, context: CallbackContext):
 	'''Command /restrict_non_text message handler'''
@@ -1917,7 +1924,7 @@ def cmd_restrict_non_text(update: Update, context: CallbackContext):
 			save_config_property(chat_id, "Restrict_Non_Text", False)
 			tlg_send_selfdestruct_msg(bot, print_id, TEXT[lang]["RESTRICT_NON_TEXT_MSG_DISABLED"])
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_add_ignore(update: Update, context: CallbackContext):
@@ -1972,7 +1979,7 @@ def cmd_add_ignore(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_remove_ignore(update: Update, context: CallbackContext):
@@ -2023,7 +2030,7 @@ def cmd_remove_ignore(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_ignore_list(update: Update, context: CallbackContext):
@@ -2063,7 +2070,7 @@ def cmd_ignore_list(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_enable(update: Update, context: CallbackContext):
@@ -2100,7 +2107,7 @@ def cmd_enable(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_disable(update: Update, context: CallbackContext):
@@ -2137,7 +2144,7 @@ def cmd_disable(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_version(update: Update, context: CallbackContext):
@@ -2154,7 +2161,7 @@ def cmd_version(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_about(update: Update, context: CallbackContext):
@@ -2171,7 +2178,7 @@ def cmd_about(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)	
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_captcha(update: Update, context: CallbackContext):
@@ -2191,7 +2198,7 @@ def cmd_captcha(update: Update, context: CallbackContext):
 		except Exception as e:
 			printts("[{}] {}".format(chat_id, str(e)))
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
 
 def cmd_protection(update: Update, context: CallbackContext):
 	try:
@@ -2222,7 +2229,67 @@ def cmd_protection(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
+
+def cmd_trigger_delete_welcome(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		current = get_chat_config(chat_id,"Delete_Welcome")
+		lang = get_chat_config(chat_id, "Language")
+		if current:
+			save_config_property(chat_id,"Delete_Welcome",False)
+			bot_msg = TEXT[lang]["DELETE_WELCOME_OFF"]
+		else:
+			save_config_property(chat_id,"Delete_Welcome",True)
+			bot_msg = TEXT[lang]["DELETE_WELCOME_ON"]
+		if chat_type == "private":
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+def cmd_trigger_delete_notes(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		current = get_chat_config(chat_id,"Delete_Notes")
+		lang = get_chat_config(chat_id, "Language")
+		if current:
+			save_config_property(chat_id,"Delete_Notes",False)
+			bot_msg = TEXT[lang]["DELETE_NOTES_OFF"]
+		else:
+			save_config_property(chat_id,"Delete_Notes",True)
+			bot_msg = TEXT[lang]["DELETE_NOTES_ON"]
+		if chat_type == "private":
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
 
 def cmd_info(update: Update, context: CallbackContext):
 	try:
@@ -2247,7 +2314,45 @@ def cmd_info(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
-		send_to_admin(bot,chat_id,e)
+		send_to_owner(bot,chat_id,e)
+
+def cmd_allow_group(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		msg =  update.message
+		chat_id = update.message.chat_id
+		lang = get_chat_config(chat_id, "Language")
+		args = context.args
+		if msg.chat.type == "private":
+			if is_owner(msg):
+				if len(args) >=1:
+					for group_id in args:
+						save_config_property(int(group_id),"Allowed",True)
+					bot_msg = TEXT[lang]["GROUP_ALLOWED"].format(args)
+				else:
+					bot_msg = TEXT[lang]["GROUP_ALLOW_NO_ARGS"]
+				bot.send_message(chat_id, bot_msg)
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+def cmd_disallow_group(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		msg =  update.message
+		chat_id = update.message.chat_id
+		lang = get_chat_config(chat_id, "Language")
+		args = context.args
+		if msg.chat.type == "private":
+			if is_owner(msg):
+				if len(args) >=1:
+					for group_id in args:
+						save_config_property(int(group_id),"Allowed",False)
+					bot_msg = TEXT[lang]["GROUP_DISALLOWED"].format(args)
+				else:
+					bot_msg = TEXT[lang]["GROUP_DISALLOW_NO_ARGS"]
+				bot.send_message(chat_id, bot_msg)
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)	
 ####################################################################################################
 
 ### Main Loop Functions ###
@@ -2455,6 +2560,11 @@ def main():
 	#troll commands -> kick ;)
 	dp.add_handler(CommandHandler("kill_yourself",cmd_kick))
 
+	dp.add_handler(CommandHandler("trigger_delete_welcome", cmd_trigger_delete_welcome))
+	dp.add_handler(CommandHandler("trigger_delete_notes", cmd_trigger_delete_notes))
+
+	dp.add_handler(CommandHandler("allow_group", cmd_allow_group,pass_args=True))
+	dp.add_handler(CommandHandler("disallow_group", cmd_disallow_group,pass_args=True))
 
 	dp.add_handler(CommandHandler("add_note", cmd_add_trigger,pass_args=True))
 	dp.add_handler(CommandHandler("delete_note",cmd_delete_trigger,pass_args=True))

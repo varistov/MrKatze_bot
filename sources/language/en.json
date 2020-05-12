@@ -48,6 +48,30 @@
     "BOT_LEFT_GROUP":
         "I left group {} because I am not allowed to work there.",
 
+    "GROUP_ALLOW_NO_ARGS":  
+        "Please specify which group you want to allow!",
+
+    "GROUP_DISALLOW_NO_ARGS":  
+        "Please specify which group you want to disallow!",
+
+    "GROUP_ALLOWED":
+        "I am now allowed to run in this group(s): {}",
+
+    "GROUP_DISALLOWED":
+        "I am not allowed to run in this group(s) anymore: {}",
+
+    "DELETE_NOTES_ON":
+        "I will auto-delete notes from now on.",
+
+    "DELETE_NOTES_OFF":
+        "I will not auto-delete notes from now on.",
+
+    "DELETE_WELCOME_ON":
+        "I will auto-delete welcome messages from now on.",
+
+    "DELETE_WELCOME_OFF":
+        "I will not auto-delete welcome messages from now on.",
+
     "LANG_CHANGE":
         "Language changed to English.",
 
