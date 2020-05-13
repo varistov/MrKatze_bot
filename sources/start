@@ -1,0 +1,3 @@
+rm -f ./data/captchas/*
+nohup python3 -u butter_bot.py > output.log 2>&1 &
+echo "Starting Script..."
