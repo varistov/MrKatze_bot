@@ -564,7 +564,7 @@ def get_chat_config_file(chat_id):
 
 def tlg_check_invite_hash(invite_hash):
 	'''Check if the specified hash link is valid, uses telethon'''
-	valid = os.popen('python check_invite.py {}'.format(invite_hash)).read()
+	valid = os.popen('python3 check_invite.py {}'.format(invite_hash)).read()
 	print(valid)
 	print(invite_hash)
 	if "not" in valid:
