@@ -3,7 +3,7 @@
 ####################################################################################################
 
 ### Imported modules ###
-import re, math, traceback
+import re, math, traceback, os
 from sys import exit
 from signal import signal, SIGTERM, SIGINT
 from os import path, remove, makedirs, listdir
@@ -24,13 +24,14 @@ from constants import CONST, TEXT
 try:
 	from secrets import SECRETS
 except Exception as e:
-	print("Copy 'secrets.example.py' to 'secrets.py' and fill in information. After that start the bot again!")
+	printts("Copy 'secrets.example.py' to 'secrets.py' and fill in information. After that start the bot again!")
+	printts("Exit.\n")
 	exit(0)
 
 from tsjson import TSjson
 from lib.multicolor_captcha_generator.img_captcha_gen import CaptchaGenerator
 from telegram.error import (TelegramError, Unauthorized, BadRequest, 
-                            TimedOut, ChatMigrated, NetworkError)
+							TimedOut, ChatMigrated, NetworkError)
 
 ####################################################################################################
 
@@ -265,12 +266,12 @@ def show_user_captcha(bot, chat_id,user_name, lang):
 					"Scheduled for deletion".format(chat_id))
 
 def uniq(lst):
-    last = object()
-    for item in lst:
-        if item == last:
-            continue
-        yield item
-        last = item
+	last = object()
+	for item in lst:
+		if item == last:
+			continue
+		yield item
+		last = item
 
 def get_protected_list():
 	protected_list = []
@@ -361,13 +362,17 @@ def kick_user(bot,chat_id,user_id,user_name):
 			# Set to auto-remove the kick message too, after a while
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 
-def handle_request(bot,chat_id,user_id,captcha_timeout):
+def handle_request(bot,chat_id,user_id,captcha_timeout, lang):
 	link = revoke_group_link(bot,chat_id)
-	user_time = time()
-	save_config_property(chat_id,"Protection_Current_User",user_id)
-	save_config_property(chat_id,"Protection_Current_Time",user_time)
-	Timer(int(captcha_timeout), revoke_group_link_delayed, [bot,chat_id,user_id,user_time]).start()
-	return link
+	if len(link) > 1:
+		user_time = time()
+		save_config_property(chat_id,"Protection_Current_User",user_id)
+		save_config_property(chat_id,"Protection_Current_Time",user_time)
+		return TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+		#Timer(int(captcha_timeout), revoke_group_link_delayed, [bot,chat_id,user_id,user_time]).start()
+	else:
+		return TEXT[lang]["PROTECTION_NO_LINK"]
+		
 
 def revoke_group_link_delayed(bot,chat_id, expected_user, expected_time):
 	if expected_user == get_chat_config(chat_id,"Protection_Current_User"):
@@ -375,10 +380,22 @@ def revoke_group_link_delayed(bot,chat_id, expected_user, expected_time):
 			return bot.exportChatInviteLink(chat_id)
 
 def revoke_group_link(bot,chat_id):
-	try:
-		return bot.exportChatInviteLink(chat_id)
-	except BadRequest as e:
-		pass#handle no rights to revoke link
+	current_hash = get_chat_config(chat_id, "Invite_Hash")
+	current_hash_time = get_chat_config(chat_id,"Invite_Hash_time")
+	if len(current_hash)>1 and time() < current_hash_time +CONST["MAX_INVITE_LINK_AGE"] and tlg_check_invite_hash(current_hash):
+		return CONST["INVITE_LINK_PREFIX"].format(current_time)
+	else:
+		try:
+			invite_link = bot.exportChatInviteLink(chat_id)
+			current_hash = invite_link.split("/")
+			current_hash=current_hash[len(current_hash)-1]
+			if tlg_check_invite_hash(current_hash):
+				save_config_property(chat_id,"Invite_Hash",current_hash)
+				save_config_property(chat_id,"Invite_Hash_time",time())
+				return invite_link
+		except BadRequest as e:
+			pass#handle no rights to revoke link
+	return ""
 
 def request_group_link(bot,chat_id,user_id,lang,query_id):
 	printts("[{}]: user {} requested group link".format(chat_id,user_id))
@@ -387,14 +404,12 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 	captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
 	if ((current_user == "" or current_user == 0) and time() > current_user_time+60) or is_owner(user_id):
 		printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
-		link = handle_request(bot,chat_id,user_id,captcha_timeout)
-		bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+		bot_msg = handle_request(bot,chat_id,user_id,captcha_timeout, lang)
 		
 	elif current_user != user_id:
 		if time() > current_user_time+(captcha_timeout*60):
 			printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
-			link = handle_request(bot,chat_id,user_id,captcha_timeout)
-			bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+			bot_msg = handle_request(bot,chat_id,user_id,captcha_timeout, lang)
 		else:
 			mins_left = math.floor((current_user_time+(captcha_timeout*60)-time())/60)
 			if mins_left <=0:
@@ -403,8 +418,7 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 			bot_msg = TEXT[lang]["PROTECTION_IN_PROCESS"].format(mins_left)
 	elif time() > current_user_time+(captcha_timeout*60):
 		printts("[{}]: user {} old link timed out, requesting new".format(chat_id,user_id))
-		link = handle_request(bot,chat_id,user_id,captcha_timeout)
-		bot_msg = TEXT[lang]["PROTECTION_SEND_LINK"].format(link,captcha_timeout)
+		bot_msg = handle_request(bot,chat_id,user_id,captcha_timeout, lang)
 	else:
 		bot_msg = TEXT[lang]["PROTECTION_REQUESTED"]
 	bot.send_message(user_id, bot_msg,parse_mode=ParseMode.HTML)
@@ -487,7 +501,9 @@ def get_default_config_data():
 		("Trigger_List", {}),
 		("Question_List", {}),
 		("Trigger_Char", CONST["INIT_TRIGGER_CHAR"]),
-		("Last_Welcome_Msg", [0,0])
+		("Last_Welcome_Msg", [0,0]),
+		("Invite_Hash", ""),
+		("Invite_Hash_time", 0)
 	])
 	return config_data
 
@@ -545,6 +561,17 @@ def get_chat_config_file(chat_id):
 ####################################################################################################
 
 ### Telegram Related Functions ###
+
+def tlg_check_invite_hash(invite_hash):
+	'''Check if the specified hash link is valid, uses telethon'''
+	valid = os.popen('python check_invite.py {}'.format(invite_hash)).read()
+	print(valid)
+	print(invite_hash)
+	if "not" in valid:
+		return False
+	elif "valid" in valid:
+		return True
+	return False
 
 def tlg_user_is_admin(bot, user_id, chat_id):
 	'''Check if the specified user is an Administrator of a group given by IDs'''
@@ -824,12 +851,10 @@ def msg_new_user(update: Update, context: CallbackContext):
 				if protected and current_user == join_user_id and time() <= current_user_time+(captcha_timeout*60):
 					send_welcome_msg(bot,chat_id,update,chat_id)
 					save_config_property(chat_id,"Protection_Current_User",0)
-					revoke_group_link(bot,chat_id)
 					printts("[{}] User joined after protected authorization!".format(chat_id))
 					continue
 				elif protected:
 					kick_user(bot,chat_id,join_user_id,update.message.from_user.username)
-					revoke_group_link(bot,chat_id)
 					printts("[{}] User kicked because of protection!".format(chat_id))
 					continue
 				# Check and remove previous join messages of that user (if any)
@@ -1269,11 +1294,11 @@ def button_request_captcha(update: Update, context: CallbackContext):
 
 ### Received Telegram command messages handlers ###
 def error_callback(update, context):
-    try:
-        raise context.error
-    except Exception as e:
-    	chat_id = update.message.chat_id
-    	send_to_owner(bot,chat_id,e)
+	try:
+		raise context.error
+	except Exception as e:
+		chat_id = update.message.chat_id
+		send_to_owner(bot,chat_id,e)
 
 
 def cmd_kick(update: Update, context: CallbackContext):
@@ -2241,20 +2266,22 @@ def cmd_protection(update: Update, context: CallbackContext):
 			else:
 				send_not_connected(bot,chat_id)
 				return
-		current = get_chat_config(chat_id,"Protected")
-		lang = get_chat_config(chat_id, "Language")
-		if current:
-			save_config_property(chat_id,"Protected",False)
-			link = revoke_group_link(bot,chat_id)
-			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_OFF"]
 		else:
-			save_config_property(chat_id,"Protected",True)
-			bot_msg = TEXT[lang]["CHANNEL_PROTECTION_ON"]
-		if chat_type == "private":
-			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
-		else:
-			tlg_msg_to_selfdestruct(update.message)
-			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
+			if tlg_user_is_admin(bot, user_id, chat_id):
+				current = get_chat_config(chat_id,"Protected")
+				lang = get_chat_config(chat_id, "Language")
+				if current:
+					save_config_property(chat_id,"Protected",False)
+					#link = revoke_group_link(bot,chat_id)
+					bot_msg = TEXT[lang]["CHANNEL_PROTECTION_OFF"]
+				else:
+					save_config_property(chat_id,"Protected",True)
+					bot_msg = TEXT[lang]["CHANNEL_PROTECTION_ON"]
+				if chat_type == "private":
+					bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+				else:
+					tlg_msg_to_selfdestruct(update.message)
+					tlg_send_selfdestruct_msg(bot, print_id, bot_msg)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
@@ -2556,7 +2583,7 @@ def main():
 	# Check if Bot Token has been set or has default value
 	if SECRETS["TOKEN"] == "XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX":
 		printts("Error: Bot Token has not been set.")
-		printts("Please add your Bot Token to constants.py file.")
+		printts("Please copy 'secrets.example.py' to 'secrets.py' and add your Bot Token to 'secrets.py'.")
 		printts("Exit.\n")
 		exit(0)
 	printts("Bot started.")

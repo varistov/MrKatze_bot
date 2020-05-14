@@ -123,6 +123,9 @@
     "PROTECTION_SEND_LINK":
         "Requested invitation link: \n{}\n\n<b>only valid for {} minutes!</b>",
 
+    "PROTECTION_NO_LINK":
+        "This group reached its invite link limit. Please wait some time and try again.",
+
     "PROTECTION_REQUESTED":
         "You already requested this link! Please use it!",
         
