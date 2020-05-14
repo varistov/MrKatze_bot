@@ -10,13 +10,14 @@ if len(sys.argv) > 1:
 	with TelegramClient(SECRETS["API_NAME"], SECRETS["API_ID"], SECRETS["API_HASH"]) as client:
 	    try:
 	    	result = client(functions.messages.CheckChatInviteRequest(hash=sys.argv[1]))
-	    	if not result.chat.deactivated:
+	    	if not result.title == None:
 	    		print("valid")
 	    		sys.exit(0)
 	    	else:
 	    		print("not")
 	    except Exception as e:
 	    	print("not")
+	    	print(e)
 	    	sys.exit(1)
 else:
 	print("please specify invite hash!")
