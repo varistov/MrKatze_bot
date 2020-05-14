@@ -20,6 +20,13 @@ from telegram.ext import (CallbackContext, Updater, CommandHandler, MessageHandl
 	CallbackQueryHandler, Defaults)
 
 from constants import CONST, TEXT
+
+try:
+	from secrets import SECRETS
+except Exception as e:
+	print("Copy 'secrets.example.py' to 'secrets.py' and fill in information. After that start the bot again!")
+	exit(0)
+
 from tsjson import TSjson
 from lib.multicolor_captcha_generator.img_captcha_gen import CaptchaGenerator
 from telegram.error import (TelegramError, Unauthorized, BadRequest, 
@@ -2547,7 +2554,7 @@ def check_time_to_kick_not_verify_users(bot):
 def main():
 	'''Main Function'''
 	# Check if Bot Token has been set or has default value
-	if CONST["TOKEN"] == "XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX":
+	if SECRETS["TOKEN"] == "XXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX":
 		printts("Error: Bot Token has not been set.")
 		printts("Please add your Bot Token to constants.py file.")
 		printts("Exit.\n")
@@ -2559,7 +2566,7 @@ def main():
 	# Set messages to be sent silently by default
 	msgs_defaults = Defaults(disable_notification=True)
 	# Create an event handler (updater) for a Bot with the given Token and get the dispatcher
-	updater = Updater(CONST["TOKEN"], use_context=True, defaults=msgs_defaults)
+	updater = Updater(SECRETS["TOKEN"], use_context=True, defaults=msgs_defaults)
 	dp = updater.dispatcher
 	# Set to dispatcher all expected commands messages handler
 	dp.add_handler(CommandHandler("start", cmd_start))

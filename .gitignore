@@ -7,3 +7,4 @@ data/
 *.log
 tests/data/*
 *.session*
+sources/secrets.py
