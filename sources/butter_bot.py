@@ -382,7 +382,7 @@ def revoke_group_link_delayed(bot,chat_id, expected_user, expected_time):
 def revoke_group_link(bot,chat_id):
 	current_hash = get_chat_config(chat_id, "Invite_Hash")
 	current_hash_time = get_chat_config(chat_id,"Invite_Hash_time")
-	if len(current_hash)>1 and time() < current_hash_time +CONST["MAX_INVITE_LINK_AGE"] and tlg_check_invite_hash(current_hash):
+	if (len(current_hash)>1) and (int(time()) < int(current_hash_time +CONST["MAX_INVITE_LINK_AGE"])) and (tlg_check_invite_hash(current_hash)):
 		return CONST["INVITE_LINK_PREFIX"].format(current_hash)
 	else:
 		try:
