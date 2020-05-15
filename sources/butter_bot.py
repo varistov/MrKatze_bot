@@ -402,7 +402,7 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 	current_user = get_chat_config(chat_id,"Protection_Current_User")
 	current_user_time = get_chat_config(chat_id,"Protection_Current_Time")
 	captcha_timeout = get_chat_config(chat_id,"Captcha_Time")
-	if ((current_user == "" or current_user == 0) and time() > current_user_time+60) or is_owner(user_id):
+	if ((current_user == "" or current_user == 0) and time() > current_user_time+60):
 		printts("[{}]: user {} no old active link, requesting new one.".format(chat_id,user_id))
 		bot_msg = handle_request(bot,chat_id,user_id,captcha_timeout, lang)
 		
