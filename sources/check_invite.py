@@ -7,17 +7,15 @@ except Exception as e:
 	print("not")
 	exit(1)
 if len(sys.argv) > 1:
-	with TelegramClient(SECRETS["API_NAME"], SECRETS["API_ID"], SECRETS["API_HASH"]) as client:
-	    try:
+	try:
+		with TelegramClient(SECRETS["API_NAME"], SECRETS["API_ID"], SECRETS["API_HASH"]) as client:
 	    	result = client(functions.messages.CheckChatInviteRequest(hash=sys.argv[1]))
-	    	if not result.title == None:
-	    		print("valid")
-	    		sys.exit(0)
-	    	else:
-	    		print("not")
-	    except Exception as e:
+	    	print("valid")
+	except InviteHashExpiredError as ex:
 	    	print("not")
-	    	print(e)
+	    	sys.exit(1)
+	except Exception as e:
+			print("telethon error")
 	    	sys.exit(1)
 else:
 	print("please specify invite hash!")
