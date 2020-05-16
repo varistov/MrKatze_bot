@@ -1053,7 +1053,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
 			return
 		if(msg_text[0]=='/'):
-			tlg_msg_to_selfdestruct(update.message)
+			bot.delete_message(msg.chat_id,msg.message_id)
 		# Ignore if captcha protection is not enable in this chat
 		captcha_enable = get_chat_config(msg.chat_id, "Enabled")
 		if not captcha_enable:
