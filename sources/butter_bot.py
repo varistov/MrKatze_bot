@@ -288,7 +288,6 @@ def get_protected_list():
 			if enabled and allowed and title:
 				if current_user > 1 and time() > current_time + (captcha_timeout * 60):
 					save_config_property(group["ID"],"Protection_Current_User",0)
-				print(group["ID"])
 				protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return protected_list
 
@@ -302,7 +301,6 @@ def get_user_full_name(msg):
 	else:
 		name = "{} {}".format(first_name,last_name)
 	name_chars =''.join(e for e in name if e.isalnum())
-	print(name_chars)
 	if len(name_chars) ==0:
 		name = "'{}'".format(name)
 	return name
@@ -321,7 +319,7 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		if welcome_msg != "-":
 			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True)
 			valid_id = int(getattr(valid, "message_id", 0))
-			if msg.chat.type == "group" and valid_id > 0 and get_chat_config(chat_id,"Delete_Welcome"):
+			if msg.chat.type != "private" and valid_id > 0 and get_chat_config(chat_id,"Delete_Welcome"):
 				old_message_ids = get_chat_config(chat_id,"Last_Welcome_Msg")
 				for old_message_id in old_message_ids:
 					try:
@@ -568,8 +566,6 @@ def get_chat_config_file(chat_id):
 def tlg_check_invite_hash(invite_hash):
 	'''Check if the specified hash link is valid, uses telethon'''
 	valid = os.popen('python3 check_invite.py {}'.format(invite_hash)).read()
-	print(valid)
-	print(invite_hash)
 	if "not" in valid:
 		return False
 	elif "valid" in valid:
