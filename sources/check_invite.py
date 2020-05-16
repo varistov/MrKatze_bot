@@ -1,5 +1,6 @@
 from telethon.sync import TelegramClient
 from telethon import functions, types
+from telethon.errors.rpcerrorlist import InviteHashExpiredError
 import sys
 try:
 	from secrets import SECRETS
