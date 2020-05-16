@@ -2381,12 +2381,15 @@ def cmd_allow_group(update: Update, context: CallbackContext):
 		if msg.chat.type == "private":
 			if is_owner(msg.from_user.id):
 				if len(args) >=1:
+					group_str=""
 					for group_id in args:
 						save_config_property(int(group_id),"Allowed",True)
-					bot_msg = TEXT[lang]["GROUP_ALLOWED"].format(args)
+						group_str+="<code>{}</code>\n".format(group_id)
+
+					bot_msg = TEXT[lang]["GROUP_ALLOWED"].format(group_str)
 				else:
 					bot_msg = TEXT[lang]["GROUP_ALLOW_NO_ARGS"]
-				bot.send_message(chat_id, bot_msg)
+				bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
@@ -2400,12 +2403,14 @@ def cmd_disallow_group(update: Update, context: CallbackContext):
 		if msg.chat.type == "private":
 			if is_owner(msg.from_user.id):
 				if len(args) >=1:
+					group_str = ""
 					for group_id in args:
 						save_config_property(int(group_id),"Allowed",False)
-					bot_msg = TEXT[lang]["GROUP_DISALLOWED"].format(args)
+						group_str+="<code>{}</code>\n".format(group_id)
+					bot_msg = TEXT[lang]["GROUP_DISALLOWED"].format(group_str)
 				else:
 					bot_msg = TEXT[lang]["GROUP_DISALLOW_NO_ARGS"]
-				bot.send_message(chat_id, bot_msg)
+				bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)	
 ####################################################################################################
