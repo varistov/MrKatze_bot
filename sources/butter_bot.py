@@ -387,12 +387,15 @@ def revoke_group_link(bot,chat_id):
 	else:
 		try:
 			invite_link = bot.exportChatInviteLink(chat_id)
-			current_hash = invite_link.split("/")
-			current_hash=current_hash[len(current_hash)-1]
-			if tlg_check_invite_hash(current_hash):
-				save_config_property(chat_id,"Invite_Hash",current_hash)
+			new_hash = invite_link.split("/")
+			new_hash=new_hash[len(new_hash)-1]
+			if tlg_check_invite_hash(new_hash):
+				save_config_property(chat_id,"Invite_Hash",new_hash)
 				save_config_property(chat_id,"Invite_Hash_time",time())
 				return invite_link
+			else:
+				if tlg_check_invite_hash(current_hash):
+					return CONST["INVITE_LINK_PREFIX"].format(current_hash)
 		except BadRequest as e:
 			pass#handle no rights to revoke link
 	return ""
