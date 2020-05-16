@@ -1668,7 +1668,6 @@ def cmd_set_welcome_message(update: Update, context: CallbackContext):
 			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
 			if not is_admin:
 				allow_command = False
-		else:
 			tlg_msg_to_selfdestruct(update.message)
 		if allow_command:
 			if len(args) >= 1:
