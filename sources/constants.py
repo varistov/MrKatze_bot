@@ -57,25 +57,25 @@ CONST = {
     "INIT_WELCOME_MSG" : "Welcome {1}!\n\nUsername: {0}\nUser-ID: {2}",
 
     # Initial captcha solve time (in minutes)
-    "INIT_CAPTCHA_TIME_MIN": 5,
+    "INIT_CAPTCHA_TIME_MIN": 2,
 
     # Initial captcha difficult level
-    "INIT_CAPTCHA_DIFFICULTY_LEVEL": 2,
+    "INIT_CAPTCHA_DIFFICULTY_LEVEL": 3,
 
     # Initial captcha characters mode (nums, hex or ascci)
-    "INIT_CAPTCHA_CHARS_MODE": "nums",
+    "INIT_CAPTCHA_CHARS_MODE": "hex",
 
     # Initial new users just allow to send text messages
-    "INIT_RESTRICT_NON_TEXT_MSG": False,
+    "INIT_RESTRICT_NON_TEXT_MSG": True,
 
     # Default time (in mins) to remove self-destruct sent messages from the Bot
-    "T_DEL_MSG": 5,
+    "T_DEL_MSG": 2,
 
     # Auto-remove custom welcome message timeout
-    "T_DEL_WELCOME_MSG": 5,
+    "T_DEL_WELCOME_MSG": 2,
 
     # Custom Welcome message max length
-    "MAX_WELCOME_MSG_LENGTH": 3968,
+    "MAX_WELCOME_MSG_LENGTH": 39680,
 
     # Maximum number of users ID allowed in each chat ignore list
     "IGNORE_LIST_MAX_ID": 100,
