@@ -314,7 +314,8 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		user_id = msg.from_user.id 
 		user_full_name = get_user_full_name(msg)
 		user_link = "https://t.me/{}".format(user_name)
-		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"{}".format(user_full_name), user_id,user_link)
+		group_name = get_chat_config(chat_id,"Title")
+		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"{}".format(user_full_name), user_id,user_link,group_name)
 		welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
 		if welcome_msg != "-":
 			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True)
@@ -1673,7 +1674,7 @@ def cmd_set_welcome_message(update: Update, context: CallbackContext):
 			if len(args) >= 1:
 				old_welcome_msg = get_chat_config(chat_id,"Welcome_Msg")
 				welcome_msg = " ".join(args)
-				welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}").replace("$link","{3}")
+				welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}").replace("$link","{3}").replace("$group","{4}")
 				welcome_msg = welcome_msg[:CONST["MAX_WELCOME_MSG_LENGTH"]]
 				if welcome_msg == "disable":
 					welcome_msg = '-'
