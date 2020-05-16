@@ -1329,7 +1329,7 @@ def cmd_start(update: Update, context: CallbackContext):
 				tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["START"])
 			else:
 				send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["OWNER],chat_id,CONST["REPOSITORY"]))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["OWNER"],chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
