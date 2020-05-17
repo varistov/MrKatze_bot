@@ -8,3 +8,4 @@ data/
 tests/data/*
 *.session*
 sources/secrets.py
+sources/lib/

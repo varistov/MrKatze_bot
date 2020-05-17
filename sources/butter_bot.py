@@ -24,8 +24,8 @@ from constants import CONST, TEXT
 try:
 	from secrets import SECRETS
 except Exception as e:
-	printts("Copy 'secrets.example.py' to 'secrets.py' and fill in information. After that start the bot again!")
-	printts("Exit.\n")
+	print("Copy 'secrets.example.py' to 'secrets.py' and fill in information. After that start the bot again!")
+	print("Exit.\n")
 	exit(0)
 
 from tsjson import TSjson
@@ -473,6 +473,35 @@ def send_to_owner(bot,chat_id, message):
 
 def is_owner(id):
 	return int(id) == int(CONST["OWNER"])
+
+def is_muted(chat_id,user_id):
+	new_list = get_chat_config(chat_id,"Muted_List")
+	for user in get_chat_config(chat_id,"Muted_List"):
+		if user["id"] == user_id:
+			if user["time"] > time():
+				return True
+			else:
+				new_list.remove(user)
+				return False
+	return False
+
+def is_beginner(chat_id,user_id):
+	for user in get_chat_config(chat_id,"Beginner_List"):
+		if user["id"] == user_id:
+			return True
+	return False
+
+def delete_if_muted(bot,update):
+	msg = update.message
+	chat_id = msg.chat_id
+	user_id = msg.from_user.id
+	msg_id = msg.message_id
+	muted = is_muted(chat_id,user_id)
+	beginner = is_beginner(chat_id,user_id)
+	if muted or beginner:
+		bot.delete_message(chat_id,msg_id)
+		return True
+	return False
 ####################################################################################################
 
 ### JSON chat config file functions ###
@@ -505,7 +534,10 @@ def get_default_config_data():
 		("Trigger_Char", CONST["INIT_TRIGGER_CHAR"]),
 		("Last_Welcome_Msg", [0,0]),
 		("Invite_Hash", ""),
-		("Invite_Hash_time", 0)
+		("Invite_Hash_time", 0),
+		("Muted_List", []),
+		("Beginner_List", []),
+		("Mute_Time", 3600)
 	])
 	return config_data
 
@@ -1009,6 +1041,9 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		chat_id = msg.chat_id
 		user_id = msg.from_user.id
 		msg_id = msg.message_id
+		if delete_if_muted(bot,update):
+			return
+		#add output if beginner
 		if msg.chat.type != "private" and not get_chat_config(chat_id,"Allowed"):
 			send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
 			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
@@ -1314,6 +1349,8 @@ def cmd_start(update: Update, context: CallbackContext):
 	'''Command /start message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		msg = getattr(update, "message", None)
 		chat_id = update.message.chat_id
 		chat_type = update.message.chat.type
@@ -1390,6 +1427,8 @@ def cmd_help(update: Update, context: CallbackContext):
 	'''Command /help message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		chat_type = update.message.chat.type
 		lang = get_chat_config(chat_id, "Language")
@@ -1407,6 +1446,8 @@ def cmd_commands(update: Update, context: CallbackContext):
 	'''Command /commands message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		send_command_list(bot,update)
 		if update.message.chat.type != "private":
 			tlg_msg_to_selfdestruct(update.message)
@@ -1418,6 +1459,8 @@ def cmd_language(update: Update, context: CallbackContext):
 	'''Command /language message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1466,6 +1509,8 @@ def cmd_time(update: Update, context: CallbackContext):
 	'''Command /time message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1516,6 +1561,8 @@ def cmd_difficulty(update: Update, context: CallbackContext):
 	'''Command /difficulty message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1565,6 +1612,8 @@ def cmd_captcha_mode(update: Update, context: CallbackContext):
 	'''Command /captcha_mode message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1611,6 +1660,8 @@ def cmd_welcome_message(update: Update, context: CallbackContext):
 	'''Command /welcome_msg message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1650,6 +1701,8 @@ def cmd_set_welcome_message(update: Update, context: CallbackContext):
 	'''Command /set_welcome_msg message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1704,6 +1757,8 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1748,6 +1803,8 @@ def cmd_delete_trigger(update: Update, context: CallbackContext):
 	'''Command /delete_trigger message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1790,6 +1847,8 @@ def cmd_notes(update: Update, context: CallbackContext):
 	'''Command /notes message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1819,6 +1878,8 @@ def cmd_delete_question(update: Update, context: CallbackContext):
 	'''Command /delete_trigger message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1859,6 +1920,8 @@ def cmd_questions(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1897,6 +1960,8 @@ def cmd_add_question(update: Update, context: CallbackContext):
 	'''Command /add_trigger message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		args = " ".join(args).split("|")
 		chat_id = update.message.chat_id
@@ -1945,6 +2010,8 @@ def cmd_restrict_non_text(update: Update, context: CallbackContext):
 	'''Command /restrict_non_text message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -1984,6 +2051,8 @@ def cmd_add_ignore(update: Update, context: CallbackContext):
 	'''Command /add_ignore message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -2039,6 +2108,8 @@ def cmd_remove_ignore(update: Update, context: CallbackContext):
 	'''Command /remove_ignore message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		args = context.args
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -2090,6 +2161,8 @@ def cmd_ignore_list(update: Update, context: CallbackContext):
 	'''Command /ignore_list message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
@@ -2130,6 +2203,8 @@ def cmd_enable(update: Update, context: CallbackContext):
 	'''Command /enable message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
@@ -2167,6 +2242,8 @@ def cmd_disable(update: Update, context: CallbackContext):
 	'''Command /disable message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
@@ -2204,6 +2281,8 @@ def cmd_version(update: Update, context: CallbackContext):
 	'''Command /version message handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		chat_type = update.message.chat.type
 		lang = get_chat_config(chat_id, "Language")
@@ -2221,6 +2300,8 @@ def cmd_about(update: Update, context: CallbackContext):
 	'''Command /about handler'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		lang = get_chat_config(chat_id, "Language")
 		bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
@@ -2237,6 +2318,8 @@ def cmd_about(update: Update, context: CallbackContext):
 def cmd_captcha(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		captcha_level = get_chat_config(chat_id, "Captcha_Difficulty_Level")
@@ -2256,6 +2339,8 @@ def cmd_captcha(update: Update, context: CallbackContext):
 def cmd_protection(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
@@ -2289,6 +2374,8 @@ def cmd_protection(update: Update, context: CallbackContext):
 def cmd_trigger_delete_welcome(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
@@ -2319,6 +2406,8 @@ def cmd_trigger_delete_welcome(update: Update, context: CallbackContext):
 def cmd_trigger_delete_notes(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
@@ -2349,6 +2438,8 @@ def cmd_trigger_delete_notes(update: Update, context: CallbackContext):
 def cmd_info(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		msg =  update.message
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
@@ -2374,6 +2465,8 @@ def cmd_info(update: Update, context: CallbackContext):
 def cmd_allow_group(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		msg =  update.message
 		chat_id = update.message.chat_id
 		lang = get_chat_config(chat_id, "Language")
@@ -2396,6 +2489,8 @@ def cmd_allow_group(update: Update, context: CallbackContext):
 def cmd_disallow_group(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
 		msg =  update.message
 		chat_id = update.message.chat_id
 		lang = get_chat_config(chat_id, "Language")
@@ -2412,7 +2507,47 @@ def cmd_disallow_group(update: Update, context: CallbackContext):
 					bot_msg = TEXT[lang]["GROUP_DISALLOW_NO_ARGS"]
 				bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
-		send_to_owner(bot,chat_id,e)	
+		send_to_owner(bot,chat_id,e)
+
+def cmd_mute(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		args = context.args
+		if delete_if_muted(bot,update):
+			return
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+		lang = get_chat_config(chat_id, "Language")
+		reply_to = getattr(update.message,"reply_to_message", None)
+		if reply_to != None:
+			reply_id = reply_to.from_user.id
+			args=[reply_id]
+		if len(args) >=1:
+			muted_list = get_chat_config(chat_id,"Muted_List")
+			mute_time = get_chat_config(chat_id,"Mute_Time")
+			for user_id in args:
+				muted_list.append({"id": int(user_id),"time": time()+mute_time})
+			save_config_property(chat_id,"Muted_List",muted_list)
+			bot_msg = TEXT[lang]["MUTE_DONE"].format(math.floor(mute_time/60))
+		if chat_type == "private":
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg)	
+
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
 ####################################################################################################
 
 ### Main Loop Functions ###
@@ -2633,6 +2768,8 @@ def main():
 	dp.add_handler(CommandHandler("add_question", cmd_add_question, pass_args=True))
 	dp.add_handler(CommandHandler("delete_question", cmd_delete_question, pass_args=True))
 	dp.add_handler(CommandHandler("questions", cmd_questions, pass_args=True))
+
+	dp.add_handler(CommandHandler("mute", cmd_mute, pass_args=True))
 
 	dp.add_handler(CommandHandler("restrict_non_text", cmd_restrict_non_text, pass_args=True))
 	dp.add_handler(CommandHandler("add_ignore", cmd_add_ignore, pass_args=True))

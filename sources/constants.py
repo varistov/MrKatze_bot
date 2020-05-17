@@ -17,8 +17,8 @@ SCRIPT_PATH = path.dirname(path.realpath(__file__))
 # General Bots Parameters
 CONST = {
     
-    # Maximum invite link age in seconds. 3600=1h
-    "MAX_INVITE_LINK_AGE" : 3600,
+    # Maximum invite link age in seconds
+    "MAX_INVITE_LINK_AGE" : 120,
 
     # Telegram invite link prefix
     "INVITE_LINK_PREFIX" : "https://t.me/joinchat/{}",
