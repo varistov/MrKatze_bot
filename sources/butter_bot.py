@@ -2530,6 +2530,7 @@ def cmd_mute(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 		lang = get_chat_config(chat_id, "Language")
 		reply_to = getattr(update.message,"reply_to_message", None)
+		bot_msg = TEXT[lang]["MUTE_ARGS_MISSING"]
 		if reply_to != None:
 			reply_id = reply_to.from_user.id
 			args=[reply_id]
@@ -2540,9 +2541,8 @@ def cmd_mute(update: Update, context: CallbackContext):
 				muted_list.append({"id": int(user_id),"time": time()+mute_time})
 			save_config_property(chat_id,"Muted_List",muted_list)
 			bot_msg = TEXT[lang]["MUTE_DONE"].format(math.floor(mute_time/60))
-		else:
-			bot_msg = TEXT[lang]["MUTE_ARGS_MISSING"]
 			
+
 		if chat_type == "private":
 			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
