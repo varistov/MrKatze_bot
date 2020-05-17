@@ -276,6 +276,9 @@
     "MUTE_DONE":
         "I muted this user(s) for {} minutes.",
 
+    "MUTE_ARGS_MISSING":
+        "Please specify a user_id or reply to a user you want to mute.",
+
     "VERSION":
         "Current Bot version: {}",
 

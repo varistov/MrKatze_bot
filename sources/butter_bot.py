@@ -2540,6 +2540,9 @@ def cmd_mute(update: Update, context: CallbackContext):
 				muted_list.append({"id": int(user_id),"time": time()+mute_time})
 			save_config_property(chat_id,"Muted_List",muted_list)
 			bot_msg = TEXT[lang]["MUTE_DONE"].format(math.floor(mute_time/60))
+		else:
+			bot_msg = TEXT[lang]["MUTE_ARGS_MISSING"]
+			
 		if chat_type == "private":
 			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
