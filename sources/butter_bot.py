@@ -493,14 +493,15 @@ def is_beginner(chat_id,user_id):
 
 def delete_if_muted(bot,update):
 	msg = update.message
-	chat_id = msg.chat_id
-	user_id = msg.from_user.id
-	msg_id = msg.message_id
-	muted = is_muted(chat_id,user_id)
-	beginner = is_beginner(chat_id,user_id)
-	if muted or beginner:
-		bot.delete_message(chat_id,msg_id)
-		return True
+	if not msg == None:
+		chat_id = msg.chat_id
+		user_id = msg.from_user.id
+		msg_id = msg.message_id
+		muted = is_muted(chat_id,user_id)
+		beginner = is_beginner(chat_id,user_id)
+		if muted or beginner:
+			bot.delete_message(chat_id,msg_id)
+			return True
 	return False
 ####################################################################################################
 
