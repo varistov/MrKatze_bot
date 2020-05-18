@@ -983,6 +983,8 @@ def msg_notext(update: Update, context: CallbackContext):
 	'''All non-text messages handler.'''
 	try:
 		bot = context.bot
+		if delete_if_muted(bot,update):
+                        return
 		# Check for normal or edited message
 		msg = getattr(update, "message", None)
 		if msg is None:
