@@ -2519,6 +2519,8 @@ def cmd_mute(update: Update, context: CallbackContext):
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
 		print_id = chat_id
+		if not tlg_user_is_admin(bot,chat_id,user_id):
+			return
 		if chat_type == "private":
 			connected = get_connected_group(bot,user_id)
 			if connected < 0:
