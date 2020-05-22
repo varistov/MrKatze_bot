@@ -484,6 +484,7 @@ def is_muted(chat_id,user_id):
 			else:
 				new_list.remove(user)
 				return False
+	save_config_property(chat_id,"Muted_List",new_list)
 	return False
 
 def is_beginner(chat_id,user_id):
