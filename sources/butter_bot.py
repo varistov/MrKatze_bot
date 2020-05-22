@@ -40,6 +40,7 @@ files_config_list = []
 to_delete_in_time_messages_list = []
 to_delete_join_messages_list = []
 new_users_list = []
+FOREVER = 999999999999999999999
 
 # Create Captcha Generator object of specified size (2 -> 640x360)
 CaptchaGen = CaptchaGenerator(2)
@@ -950,6 +951,11 @@ def msg_new_user(update: Update, context: CallbackContext):
 						"join_retries": 1,
 						"kicked_ban": False
 					}
+
+					# Add user to mute list until he solves the captcha
+					muted_list = get_chat_config(chat_id,"Muted_List")
+					muted_list.append({"id": user_id, "time": time()+FOREVER})
+					save_config_property(chat_id,"Muted_List",muted_list)
 					# Check if this user was before in the chat without solve the captcha
 					prev_user_data = None
 					for user in new_users_list:
