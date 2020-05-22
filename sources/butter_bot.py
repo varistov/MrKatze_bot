@@ -487,6 +487,14 @@ def is_muted(chat_id,user_id):
 	save_config_property(chat_id,"Muted_List",new_list)
 	return False
 
+def delete_from_muted_list(muted_list,user_id):
+	new_list = []
+	for user in muted_list:
+		if not user["id"] == user_id:
+			new_list.append(user)
+	return new_list
+
+
 def is_beginner(chat_id,user_id):
 	for user in get_chat_config(chat_id,"Beginner_List"):
 		if user["id"] == user_id:
@@ -1051,7 +1059,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		chat_id = msg.chat_id
 		user_id = msg.from_user.id
 		msg_id = msg.message_id
-		if delete_if_muted(bot,update):
+		if len(msg_text) != 4 and delete_if_muted(bot,update):
 			return
 		#add output if beginner
 		if msg.chat.type != "private" and not get_chat_config(chat_id,"Allowed"):
@@ -1165,20 +1173,19 @@ def msg_nocmd(update: Update, context: CallbackContext):
 						break
 					j = j + 1
 				# Remove user captcha numbers message
+				#add deleting all user captcha messages that were wrong
 				tlg_delete_msg(bot, chat_id, msg.message_id)
 				bot_msg = TEXT[lang]["CAPTCHA_SOLVED"].format(new_user["user_name"])
 				# Set Bot to auto-remove captcha solved message too after 5mins
 				#            tlg_send_selfdestruct_msg_in(bot, chat_id, bot_msg, 5)
 				if new_user in new_users_list:
 					new_users_list.remove(new_user)
+				#remove user from muted list
+				muted_list = get_chat_config(chat_id,"Muted_List")
+				muted_list = delete_from_muted_list(muted_list,new_user["user_id"])
+				save_config_property(chat_id,"Muted_List",muted_list)
+
 				send_welcome_msg(bot,chat_id,update,chat_id)
-				# Check for custom welcome message and send it
-				#user_link = new_user["user_name"].split("@")
-				#user_link = "https://t.me/{}".format(user_link[len(user_link)-1])
-				#welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(new_user["user_name"],"'{}'".format( msg.from_user.full_name), new_user["user_id"],user_link)
-				#if welcome_msg != "-":
-				#	tlg_send_selfdestruct_msg_in(bot, chat_id, welcome_msg, CONST["T_DEL_WELCOME_MSG"])
-				# Check for send just text message option and apply user restrictions
 				restrict_non_text_msgs = get_chat_config(chat_id, "Restrict_Non_Text")
 				if restrict_non_text_msgs:
 					tlg_restrict_user(bot, chat_id, user_id, send_msg=True, send_media=False, 
