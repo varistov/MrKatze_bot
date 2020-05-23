@@ -963,7 +963,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 
 					# Add user to mute list until he solves the captcha
 					muted_list = get_chat_config(chat_id,"Muted_List")
-					muted_list.append({"id": user_id, "time": time()+FOREVER})
+					muted_list.append({"id": join_user_id, "time": time()+FOREVER})
 					save_config_property(chat_id,"Muted_List",muted_list)
 					# Check if this user was before in the chat without solve the captcha
 					prev_user_data = None
