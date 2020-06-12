@@ -471,6 +471,7 @@ def send_to_owner(bot,chat_id, message):
 		printts("[{}]: {}".format(chat_id,error))
 		bot.send_message(CONST["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error),parse_mode=ParseMode.HTML)
 	except Exception:
+		bot.send_message(CONST["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error))
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
 
 def is_owner(id):
