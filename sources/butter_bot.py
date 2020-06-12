@@ -313,8 +313,8 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		tlg_msg_to_selfdestruct(msg)
 		user_name = msg.from_user.username
 		user_id = msg.from_user.id 
-		user_full_name = get_user_full_name(msg)
-		user_link = "https://t.me/{}".format(user_name)
+		user_full_name = "<a href='tg://user?id={}'>{}</a>".format(user_id,get_user_full_name(msg))
+		user_link = "tg://user?id={}".format(user_id)
 		group_name = get_chat_config(chat_id,"Title")
 		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"{}".format(user_full_name), user_id,user_link,group_name)
 		welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
@@ -1771,7 +1771,10 @@ def cmd_set_welcome_message(update: Update, context: CallbackContext):
 		if allow_command:
 			if len(args) >= 1:
 				old_welcome_msg = get_chat_config(chat_id,"Welcome_Msg")
-				welcome_msg = " ".join(args)
+				#welcome_msg = " ".join(args)
+				welcome_msg=" ".join(update.message.text.split(" ")[1:])
+				offset = len(update.message.text)-len(welcome_msg)
+				welcome_msg = message_to_html(welcome_msg,update.message.entities,offset)
 				welcome_msg = welcome_msg.replace("$user", "{0}").replace("$name","{1}").replace("$id","{2}").replace("$link","{3}").replace("$group","{4}")
 				welcome_msg = welcome_msg[:CONST["MAX_WELCOME_MSG_LENGTH"]]
 				if welcome_msg == "disable":
