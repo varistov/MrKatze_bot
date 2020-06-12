@@ -1115,7 +1115,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				tlg_send_selfdestruct_msg(bot, chat_id, trigger_msg)
 				return
 			elif len(trigger_msg) > 0:
-				bot.send_message(msg.chat_id, trigger_msg)
+				bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML)
 				return
 		# Handle user captcha if message is private
 		if msg.chat.type == "private":
