@@ -2506,7 +2506,13 @@ def cmd_info(update: Update, context: CallbackContext):
 			bot_msg = TEXT[lang]["USER_INFO"].format(name,username,user_id,chat_id)
 			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
-			bot_msg = TEXT[lang]["USER_INFO"].format(name,username,user_id,chat_id)
+			reply_to = getattr(update.message,"reply_to_message", None)
+			reply_id = user_id
+			if reply_to != None:
+				reply_id = reply_to.from_user.id
+				username = reply_to.from_user.username
+				name = get_user_full_name(reply_to)
+			bot_msg = TEXT[lang]["USER_INFO"].format(name,username,reply_id,chat_id)
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg)
 	except Exception as e:
