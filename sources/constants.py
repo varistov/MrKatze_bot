@@ -111,7 +111,7 @@ CONST = {
     "DEV_BTC": "3N9wf3FunR6YNXonquBeWammaBZVzTXTyR",
 
     # Bot version
-    "VERSION": "0.2.2 (16/05/2020)",
+    "VERSION": "0.2.3 (12/06/2020)",
 
     #Bot owner(hoster)
     "OWNER": "294121217",
