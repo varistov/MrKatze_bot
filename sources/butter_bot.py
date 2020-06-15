@@ -292,6 +292,19 @@ def get_protected_list():
 				protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return protected_list
 
+def get_public_list():
+	public_list = []
+	group_id_list = []
+	for group in files_config_list:
+		if group["ID"] not in group_id_list:
+			group_id_list.append(group["ID"])
+			enabled = get_chat_config(group["ID"],"Public_Notes")
+			allowed = get_chat_config(group["ID"], "Allowed")
+			title = get_chat_config(group["ID"],"Title")
+			if enabled and allowed and title:
+				public_list.append([InlineKeyboardButton(title,callback_data="n{}".format(group["ID"]))])
+	return public_list
+
 def get_user_full_name(msg):
 	first_name = getattr(msg.from_user, "first_name", "")
 	last_name = getattr(msg.from_user, "last_name", "")
@@ -436,6 +449,15 @@ def request_group_link(bot,chat_id,user_id,lang,query_id):
 		bot_msg = handle_request(bot,chat_id,user_id,captcha_timeout, lang)
 	else:
 		bot_msg = TEXT[lang]["PROTECTION_REQUESTED"]
+	bot.send_message(user_id, bot_msg,parse_mode=ParseMode.HTML)
+	bot.answer_callback_query(query_id)
+
+def set_public_group(bot,group_id,user_id,lang,query_id):
+	bot_msg = TEXT[lang]["PUBLIC_NOTES_ACCESS"]
+	save_config_property(int(user_id),"Current_Note_Group",int(group_id))
+	trigger_list = get_chat_config(group_id,"Trigger_List")
+	for key in trigger_list:
+		bot_msg+="\n- <code>{}{}</code>".format(CONST["INIT_TRIGGER_CHAR"],key)
 	bot.send_message(user_id, bot_msg,parse_mode=ParseMode.HTML)
 	bot.answer_callback_query(query_id)
 
@@ -608,7 +630,9 @@ def get_default_config_data():
 		("Invite_Hash_time", 0),
 		("Muted_List", []),
 		("Beginner_List", []),
-		("Mute_Time", 3600)
+		("Mute_Time", 3600),
+		("Public_Notes", False),
+		("Current_Note_Group", 0)
 	])
 	return config_data
 
@@ -1145,6 +1169,18 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			connected = get_connected_group(bot,user_id)
 			if connected < 0:
 				chat_id = connected
+			else:
+				public_group_id = get_chat_config(chat_id,"Current_Note_Group")
+				if public_group_id < 0 and msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
+					if get_chat_config(public_group_id,"Public_Notes"):
+						trigger_list = get_chat_config(public_group_id,"Trigger_List")
+						trigger_msg = trigger_list.pop(msg_text[1:],"")
+						if len(trigger_msg) > 0:
+							bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML)
+					else:
+						lang = get_chat_config(msg.chat_id, "Language")
+						bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML)
+				return
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
 			trigger_msg = trigger_list.pop(msg_text[1:],"")
@@ -1337,7 +1373,7 @@ def button_request_captcha(update: Update, context: CallbackContext):
 		bot = context.bot
 		query = update.callback_query
 		# Ignore if the query come from an unexpected user
-		if query.data != str(query.from_user.id) and query.data[0] != "p":
+		if query.data != str(query.from_user.id) and query.data[0] != "p" and query.data[0] != "n":
 			bot.answer_callback_query(query.id)
 			return
 		# Get query data
@@ -1351,6 +1387,8 @@ def button_request_captcha(update: Update, context: CallbackContext):
 		if query.message.chat.type == "private":
 			if query.data[0] == "p":
 				request_group_link(bot,query.data[1:],query.from_user.id,lang,query.id)
+			elif query.data[0] == "n":
+				set_public_group(bot,query.data[1:],query.from_user.id,lang,query.id)
 			else:
 				printts("[{}] User {} requested a new captcha.".format(chat_id, usr_id))
 				# Prepare inline keyboard button to let user request another catcha
@@ -1899,14 +1937,16 @@ def cmd_notes(update: Update, context: CallbackContext):
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
+		lang = get_chat_config(chat_id, "Language")
 		if chat_type == "private":
 			connected = get_connected_group(bot,user_id)
 			if connected < 0:
 				chat_id = connected
 			else:
-				send_not_connected(bot,chat_id)
+				public_list = get_public_list()
+				reply_markup = InlineKeyboardMarkup(public_list)
+				bot.send_message(chat_id, TEXT[lang]["PUBLIC_NOTES"],reply_markup=reply_markup)
 				return
-		lang = get_chat_config(chat_id, "Language")
 		trigger_list = get_chat_config(chat_id,"Trigger_List")
 		trigger_string = "<b>Note List</b>\n\n"
 		for key in trigger_list:
@@ -2500,6 +2540,47 @@ def cmd_trigger_delete_notes(update: Update, context: CallbackContext):
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
+def cmd_trigger_public_notes(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		current = get_chat_config(chat_id,"Public_Notes")
+		lang = get_chat_config(chat_id, "Language")
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+			if current:
+				save_config_property(chat_id,"Public_Notes",False)
+				bot_msg = TEXT[lang]["PUBLIC_NOTES_OFF"]
+			else:
+				save_config_property(chat_id,"Public_Notes",True)
+				bot_msg = TEXT[lang]["PUBLIC_NOTES_ON"]
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		elif tlg_user_is_admin(bot, user_id, chat_id): 
+			if current:
+				save_config_property(chat_id,"Public_Notes",False)
+				bot_msg = TEXT[lang]["PUBLIC_NOTES_OFF"]
+			else:
+				save_config_property(chat_id,"Public_Notes",True)
+				bot_msg = TEXT[lang]["PUBLIC_NOTES_ON"]
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg, reply_to_message_id=update.message.message_id)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+
 def cmd_info(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
@@ -2844,6 +2925,7 @@ def main():
 
 	dp.add_handler(CommandHandler("trigger_delete_welcome", cmd_trigger_delete_welcome))
 	dp.add_handler(CommandHandler("trigger_delete_notes", cmd_trigger_delete_notes))
+	dp.add_handler(CommandHandler("trigger_public_notes",cmd_trigger_public_notes))
 
 	dp.add_handler(CommandHandler("allow_group", cmd_allow_group,pass_args=True))
 	dp.add_handler(CommandHandler("disallow_group", cmd_disallow_group,pass_args=True))
