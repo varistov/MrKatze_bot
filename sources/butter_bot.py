@@ -2354,6 +2354,7 @@ def cmd_protection(update: Update, context: CallbackContext):
 		chat_id = update.message.chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
+		lang = get_chat_config(chat_id, "Language")
 		print_id = chat_id
 		if chat_type == "private":
 			connected = get_connected_group(bot,user_id)
@@ -2365,7 +2366,6 @@ def cmd_protection(update: Update, context: CallbackContext):
 		else:
 			if tlg_user_is_admin(bot, user_id, chat_id):
 				current = get_chat_config(chat_id,"Protected")
-				lang = get_chat_config(chat_id, "Language")
 				if current:
 					save_config_property(chat_id,"Protected",False)
 					#link = revoke_group_link(bot,chat_id)
@@ -2561,6 +2561,7 @@ def cmd_mute(update: Update, context: CallbackContext):
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
 		print_id = chat_id
+		lang = get_chat_config(chat_id, "Language")
 		if not tlg_user_is_admin(bot,user_id,chat_id):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)
@@ -2574,7 +2575,6 @@ def cmd_mute(update: Update, context: CallbackContext):
 				return
 		else:
 			tlg_msg_to_selfdestruct(update.message)
-		lang = get_chat_config(chat_id, "Language")
 		reply_to = getattr(update.message,"reply_to_message", None)
 		bot_msg = TEXT[lang]["MUTE_ARGS_MISSING"]
 		if reply_to != None:
