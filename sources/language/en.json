@@ -136,7 +136,7 @@
         "Note(s) successfully deleted.",
 
     "TRIGGER_ADD_NOT_ARG":
-        "Place the note and message after the command.\n\nExample:\n/add_note markdown help <b>bold</b> <i>italic</i> <a href='https://abc.def'>link</a> <code>mono</code><br>newline<br>",
+        "Place the note and message after the command.\n\nExample:\n/add_note notename <b>bold</b> <i>italic</i> <a href='https://abc.def'>link</a> <code>mono</code><br>newline<br>\n\nYou can also reply to a message with /add_note notename.",
 
     "TRIGGER_DELETE_NOT_ARG":
         "Place the note after the command.\n\nExample:\n/delete_note help",
