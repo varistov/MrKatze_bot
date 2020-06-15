@@ -1181,9 +1181,9 @@ def msg_nocmd(update: Update, context: CallbackContext):
 							bot.delete_message(msg.chat_id,msg.message_id)
 					else:
 						lang = get_chat_config(msg.chat_id, "Language")
-						bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML)
+						bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 				elif msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
-					bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_NO_CONNECTION"],parse_mode=ParseMode.HTML)
+					bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_NO_CONNECTION"],parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
 				return
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
