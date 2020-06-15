@@ -278,8 +278,7 @@ def get_protected_list():
 	protected_list = []
 	group_id_list = []
 	for group in files_config_list:
-		if group["ID"] not in group_id_list:
-			group_id_list.append(group["ID"])
+		if int(group["ID"]) not in group_id_list:
 			enabled = get_chat_config(group["ID"],"Protected")
 			allowed = get_chat_config(group["ID"], "Allowed")
 			title = get_chat_config(group["ID"],"Title")
@@ -289,6 +288,7 @@ def get_protected_list():
 			if enabled and allowed and title:
 				if current_user > 1 and time() > current_time + (captcha_timeout * 60):
 					save_config_property(group["ID"],"Protection_Current_User",0)
+				group_id_list.append(int(group["ID"]))
 				protected_list.append([InlineKeyboardButton(title,callback_data="p{}".format(group["ID"]))])
 	return protected_list
 
@@ -296,12 +296,12 @@ def get_public_list():
 	public_list = []
 	group_id_list = []
 	for group in files_config_list:
-		if group["ID"] not in group_id_list:
-			group_id_list.append(group["ID"])
+		if int(group["ID"]) not in group_id_list:
 			enabled = get_chat_config(group["ID"],"Public_Notes")
 			allowed = get_chat_config(group["ID"], "Allowed")
 			title = get_chat_config(group["ID"],"Title")
 			if enabled and allowed and title:
+				group_id_list.append(int(group["ID"]))
 				public_list.append([InlineKeyboardButton(title,callback_data="n{}".format(group["ID"]))])
 	return public_list
 
