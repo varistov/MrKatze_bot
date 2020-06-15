@@ -90,6 +90,9 @@
     "PUBLIC_NOTES_INACCESSIBLE":
         "The notes of this group are no longer public.",
 
+    "PUBLIC_NOTES_NO_CONNECTION":
+        "Please use /notes to select a group first.",
+
     "LANG_CHANGE":
         "Language changed to English.",
 

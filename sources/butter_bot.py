@@ -1177,9 +1177,14 @@ def msg_nocmd(update: Update, context: CallbackContext):
 						trigger_msg = trigger_list.pop(msg_text[1:],"")
 						if len(trigger_msg) > 0:
 							bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML)
+						else:
+							bot.delete_message(msg.chat_id,msg.message_id)
 					else:
 						lang = get_chat_config(msg.chat_id, "Language")
 						bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML)
+				elif msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
+					bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_NO_CONNECTION"],parse_mode=ParseMode.HTML)
+
 				return
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
@@ -1191,10 +1196,12 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				reply_to_id = reply_to_msg.message_id
 			if len(trigger_msg) > 0 and get_chat_config(chat_id,"Delete_Notes"):
 				tlg_send_selfdestruct_msg(bot, chat_id, trigger_msg,reply_to_message_id=reply_to_id)
-				#answer other if reply 
 				return
 			elif len(trigger_msg) > 0:
 				bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
+				return
+			else:
+				bot.delete_message(msg.chat_id,msg.message_id)
 				return
 		# Handle user captcha if message is private
 		if msg.chat.type == "private":
