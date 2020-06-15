@@ -1770,17 +1770,26 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 			if not is_admin:
 				allow_command = False
 		if allow_command:
-			if len(args) >= 2:
+			reply_to = getattr(update.message,"reply_to_message", None)
+			if reply_to != None and len(args) >= 1:
 				name = args[0]
-				message=" ".join(update.message.text.split(" ")[2:])
-				offset = len(update.message.text)-len(message)
-				message = message_to_html(message,update.message.entities,offset)
+				message = message_to_html(reply_to.text,reply_to.entities)
 				trigger_list = get_chat_config(chat_id,"Trigger_List")
 				trigger_list[name]=message
 				save_config_property(chat_id, "Trigger_List",trigger_list)
 				bot_msg = TEXT[lang]["TRIGGER_ADD"]
 			else:
-				bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
+				if len(args) >= 2:
+					name = args[0]
+					message=" ".join(update.message.text.split(" ")[2:])
+					offset = len(update.message.text)-len(message)
+					message = message_to_html(message,update.message.entities,offset)
+					trigger_list = get_chat_config(chat_id,"Trigger_List")
+					trigger_list[name]=message
+					save_config_property(chat_id, "Trigger_List",trigger_list)
+					bot_msg = TEXT[lang]["TRIGGER_ADD"]
+				else:
+					bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
 		elif not is_admin:
 			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
 		else:
