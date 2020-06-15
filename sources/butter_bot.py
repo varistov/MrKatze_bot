@@ -2554,7 +2554,9 @@ def cmd_allow_group(update: Update, context: CallbackContext):
 					bot_msg = TEXT[lang]["GROUP_ALLOWED"].format(group_str)
 				else:
 					bot_msg = TEXT[lang]["GROUP_ALLOW_NO_ARGS"]
-				bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
+			else:
+				bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+			bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)
@@ -2580,7 +2582,9 @@ def cmd_disallow_group(update: Update, context: CallbackContext):
 					bot_msg = TEXT[lang]["GROUP_DISALLOWED"].format(group_str)
 				else:
 					bot_msg = TEXT[lang]["GROUP_DISALLOW_NO_ARGS"]
-				bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
+			else:
+				bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+			bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)
