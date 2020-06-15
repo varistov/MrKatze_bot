@@ -2556,7 +2556,6 @@ def cmd_trigger_public_notes(update: Update, context: CallbackContext):
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
 		print_id = chat_id
-		current = get_chat_config(chat_id,"Public_Notes")
 		lang = get_chat_config(chat_id, "Language")
 		if chat_type == "private":
 			connected = get_connected_group(bot,user_id)
@@ -2565,6 +2564,7 @@ def cmd_trigger_public_notes(update: Update, context: CallbackContext):
 			else:
 				send_not_connected(bot,chat_id)
 				return
+			current = get_chat_config(chat_id,"Public_Notes")
 			if current:
 				save_config_property(chat_id,"Public_Notes",False)
 				bot_msg = TEXT[lang]["PUBLIC_NOTES_OFF"]
