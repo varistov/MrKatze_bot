@@ -706,9 +706,9 @@ def tlg_get_bot_admin_privileges(bot, chat_id):
 	return bot_admin_privileges
 
 
-def tlg_send_selfdestruct_msg(bot, chat_id, message, markdown = True,reply_to_message_id=None):
+def tlg_send_selfdestruct_msg(bot, chat_id, message, markdown = True,reply_to_message_id=None,disable_web_page_preview=True):
 	'''tlg_send_selfdestruct_msg_in() with default delete time'''
-	return tlg_send_selfdestruct_msg_in(bot, chat_id, message, CONST["T_DEL_MSG"],markdown,reply_to_message_id=reply_to_message_id)
+	return tlg_send_selfdestruct_msg_in(bot, chat_id, message, CONST["T_DEL_MSG"],markdown,reply_to_message_id=reply_to_message_id, disable_web_page_preview=disable_web_page_preview)
 
 
 def tlg_msg_to_selfdestruct(message):
@@ -716,21 +716,21 @@ def tlg_msg_to_selfdestruct(message):
 	tlg_msg_to_selfdestruct_in(message, CONST["T_DEL_MSG"])
 
 
-def tlg_send_selfdestruct_msg_in(bot, chat_id, message, time_delete_min, markdown= True, reply_to_message_id=None):
+def tlg_send_selfdestruct_msg_in(bot, chat_id, message, time_delete_min, markdown= True, reply_to_message_id=None,disable_web_page_preview=True):
 	'''Send a telegram message that will be auto-delete in specified time'''
 	sent_msg_id = None
 	# Send the message
 	try:
 		if markdown:
 			if reply_to_message_id:
-				sent_msg = bot.send_message(chat_id, message, reply_to_message_id=reply_to_message_id, parse_mode=ParseMode.HTML, disable_web_page_preview=True, disable_notification=True)
+				sent_msg = bot.send_message(chat_id, message, reply_to_message_id=reply_to_message_id, parse_mode=ParseMode.HTML, disable_web_page_preview=disable_web_page_preview, disable_notification=True)
 			else:
-				sent_msg = bot.send_message(chat_id, message, parse_mode=ParseMode.HTML, disable_web_page_preview=True, disable_notification=True)
+				sent_msg = bot.send_message(chat_id, message, parse_mode=ParseMode.HTML, disable_web_page_preview=disable_web_page_preview, disable_notification=True)
 		else:
 			if reply_to_message_id:
-				sent_msg = bot.send_message(chat_id, message, reply_to_message_id=reply_to_message_id, disable_web_page_preview=True, disable_notification=True)
+				sent_msg = bot.send_message(chat_id, message, reply_to_message_id=reply_to_message_id, disable_web_page_preview=disable_web_page_preview, disable_notification=True)
 			else:
-				sent_msg = bot.send_message(chat_id, message, disable_web_page_preview=True, disable_notification=True)
+				sent_msg = bot.send_message(chat_id, message, disable_web_page_preview=disable_web_page_preview, disable_notification=True)
 
 		tlg_msg_to_selfdestruct_in(sent_msg, time_delete_min)
 		sent_msg_id = sent_msg["message_id"]
@@ -1158,7 +1158,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				#answer other if reply 
 				return
 			elif len(trigger_msg) > 0:
-				bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML,reply_to_message_id=reply_to_id)
+				bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
 				return
 		# Handle user captcha if message is private
 		if msg.chat.type == "private":
