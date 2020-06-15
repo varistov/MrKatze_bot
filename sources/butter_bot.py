@@ -1446,7 +1446,8 @@ def cmd_connect(update: Update, context: CallbackContext):
 				bot_msg = TEXT[lang]["CONNECT_NO_ARGS"]
 			admin_groups =  list_admin_groups(bot,user_id)
 			for group in admin_groups:
-				bot_msg+="\n<code>{}</code>".format(group)
+				title = get_chat_config(group,"Title")
+				bot_msg+="\n\n<b>{}</b>:\n<code>{}</code>".format(title,group)
 		bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)

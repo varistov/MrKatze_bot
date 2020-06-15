@@ -22,7 +22,7 @@
         "You are not connected to any group! Please connect to a group to use group commands.",
 
     "CONNECT_NO_ARGS":
-        "Please specify to which group you want to connect.\nYou are admin in the following group(s):\n",
+        "Please specify to which group you want to connect.\nYou are admin in the following group(s):",
 
     "CONNECT_NO_ARGS_BUT_CONNECTED":
         "<b>You are already connected to group {}</b>\n\nPlease specify to which group you want to connect.\nYou are admin in the following group(s):\n",
