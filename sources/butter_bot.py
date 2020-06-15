@@ -319,9 +319,10 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"{}".format(user_full_name), user_id,user_link,group_name)
 		welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
 		if welcome_msg != "-":
-			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True)
+			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True,reply_to_message_id=update.message.message_id)
 			valid_id = int(getattr(valid, "message_id", 0))
 			if msg.chat.type != "private" and valid_id > 0 and get_chat_config(chat_id,"Delete_Welcome"):
+				tlg_msg_to_selfdestruct(valid)
 				old_message_ids = get_chat_config(chat_id,"Last_Welcome_Msg")
 				for old_message_id in old_message_ids:
 					try:
@@ -331,6 +332,17 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 				save_config_property(chat_id,"Last_Welcome_Msg",[valid_id])
 	return valid_id
 
+
+def test_note(bot,update, print_id, note):
+	try:
+		valid = bot.send_message(print_id, note,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True,reply_to_message_id=update.message.message_id)
+		valid_id = int(getattr(valid, "message_id", 0))
+		if valid_id > 0:
+			bot.delete_message(print_id,valid_id)
+			return True
+	except Exception as e:
+		pass
+	return False
 def kick_user(bot,chat_id,user_id,user_name):
 	kick_result = tlg_kick_user(bot, chat_id, user_id)
 	if kick_result == 1:
@@ -527,22 +539,39 @@ def message_to_html(og_text,entities,cmd_offset=0):
 		"strikethrough" : "s",
 		"code" : "code",
 		"pre": "pre",
-	} 
+	}
+	last_end=0
 	counter = 0
 	for e in entities:
 		if e.type in entity_types:
+			if last_end > e.offset:
+				counter-=last_end_length
 			tag = entity_types[e.type]
 			text = text[:e.offset+counter-cmd_offset]+"<"+tag+">"+text[e.offset+counter-cmd_offset:e.offset+e.length+counter-cmd_offset]+"</"+tag+">"+text[e.offset+counter+e.length-cmd_offset:]
 			counter +=5+(len(tag)*2)
+			if last_end > e.offset:
+				counter+=last_end_length
+			last_end_length = 3+len(tag)
 		elif e.type == "text_link" and len(e.url) > 0:
+			if last_end > e.offset:
+				counter-=last_end_length
 			url = e.url
 			text = text[:e.offset+counter-cmd_offset]+"<a href='{}'>".format(url)+text[e.offset+counter-cmd_offset:e.offset+e.length+counter-cmd_offset]+"</a>"+text[e.offset+counter+e.length-cmd_offset:]
 			counter+=15+len(url)
+			if last_end > e.offset:
+				counter+=last_end_length
+			last_end_length=4
 		elif e.type == "text_mention":
+			if last_end > e.offset:
+				counter-=last_end_length
 			user = e.user 
 			url = "tg://user?id={}".format(user["id"])
 			text = text[:e.offset+counter-cmd_offset]+"<a href='{}'>".format(url)+text[e.offset+counter-cmd_offset:e.offset+e.length+counter-cmd_offset]+"</a>"+text[e.offset+counter+e.length-cmd_offset:]
 			counter+=15+len(url)
+			if last_end > e.offset:
+				counter+=last_end_length
+			last_end_length=4
+		last_end = e.offset + e.length
 	return text
 ####################################################################################################
 
@@ -1761,6 +1790,7 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 			return
 		args = context.args
 		chat_id = update.message.chat_id
+		print_id = chat_id
 		user_id = update.message.from_user.id
 		chat_type = update.message.chat.type
 		if chat_type == "private":
@@ -1781,20 +1811,26 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 			if reply_to != None and len(args) >= 1:
 				name = args[0]
 				message = message_to_html(reply_to.text,reply_to.entities)
-				trigger_list = get_chat_config(chat_id,"Trigger_List")
-				trigger_list[name]=message
-				save_config_property(chat_id, "Trigger_List",trigger_list)
-				bot_msg = TEXT[lang]["TRIGGER_ADD"]
+				if test_note(bot,update, print_id, message):
+					trigger_list = get_chat_config(chat_id,"Trigger_List")
+					trigger_list[name]=message
+					save_config_property(chat_id, "Trigger_List",trigger_list)
+					bot_msg = TEXT[lang]["TRIGGER_ADD"]
+				else:
+					print("error")
 			else:
 				if len(args) >= 2:
 					name = args[0]
 					message=" ".join(update.message.text.split(" ")[2:])
 					offset = len(update.message.text)-len(message)
 					message = message_to_html(message,update.message.entities,offset)
-					trigger_list = get_chat_config(chat_id,"Trigger_List")
-					trigger_list[name]=message
-					save_config_property(chat_id, "Trigger_List",trigger_list)
-					bot_msg = TEXT[lang]["TRIGGER_ADD"]
+					if test_note(bot,update, print_id, message):
+						trigger_list = get_chat_config(chat_id,"Trigger_List")
+						trigger_list[name]=message
+						save_config_property(chat_id, "Trigger_List",trigger_list)
+						bot_msg = TEXT[lang]["TRIGGER_ADD"]
+					else:
+						print("error")
 				else:
 					bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
 		elif not is_admin:
