@@ -94,7 +94,7 @@
         "<b>You can now access following notes:</b>",
 
     "PUBLIC_NOTES_INACCESSIBLE":
-        "The notes of this group are no longer public.",
+        "The notes of this group are no longer public, or this note does not exist!",
 
     "PUBLIC_NOTES_NO_CONNECTION":
         "Please use /notes to select a group first.",

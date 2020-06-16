@@ -1168,25 +1168,25 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		# Check if message starts with # -> print the trigger
 		if msg.chat.type == "private":
 			connected = get_connected_group(bot,user_id)
+			public_group_id = get_chat_config(chat_id,"Current_Note_Group")
 			if connected < 0:
 				chat_id = connected
-			else:
-				public_group_id = get_chat_config(chat_id,"Current_Note_Group")
-				if public_group_id < 0 and msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
-					if get_chat_config(public_group_id,"Public_Notes"):
-						trigger_list = get_chat_config(public_group_id,"Trigger_List")
-						trigger_msg = trigger_list.pop(msg_text[1:],"")
-						if len(trigger_msg) > 0:
-							bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-						elif not get_chat_config(msg.chat_id,"Allow_Bots"):
-							bot.delete_message(msg.chat_id,msg.message_id)
-					else:
-						lang = get_chat_config(msg.chat_id, "Language")
-						bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML)
-					return
-				elif msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
-					bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_NO_CONNECTION"],parse_mode=ParseMode.HTML)
-					return
+				public_group_id = connected
+			if public_group_id < 0 and msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
+				if get_chat_config(public_group_id,"Public_Notes") or connected == public_group_id:
+					trigger_list = get_chat_config(public_group_id,"Trigger_List")
+					trigger_msg = trigger_list.pop(msg_text[1:],"")
+					if len(trigger_msg) > 0:
+						bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+					elif not get_chat_config(msg.chat_id,"Allow_Bots"):
+						bot.delete_message(msg.chat_id,msg.message_id)
+				else:
+					lang = get_chat_config(msg.chat_id, "Language")
+					bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML)
+				return
+			elif msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
+				bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_NO_CONNECTION"],parse_mode=ParseMode.HTML)
+				return
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
 			trigger_msg = trigger_list.pop(msg_text[1:],"")
