@@ -1182,10 +1182,10 @@ def msg_nocmd(update: Update, context: CallbackContext):
 					else:
 						lang = get_chat_config(msg.chat_id, "Language")
 						bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_INACCESSIBLE"],parse_mode=ParseMode.HTML)
+					return
 				elif msg_text[0] == CONST["INIT_TRIGGER_CHAR"]:
 					bot.send_message(msg.chat_id, TEXT[lang]["PUBLIC_NOTES_NO_CONNECTION"],parse_mode=ParseMode.HTML)
-
-				return
+					return
 		if msg_text[0] == get_chat_config(chat_id, "Trigger_Char"):
 			trigger_list = get_chat_config(chat_id,"Trigger_List")
 			trigger_msg = trigger_list.pop(msg_text[1:],"")
