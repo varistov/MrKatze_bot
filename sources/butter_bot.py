@@ -632,7 +632,8 @@ def get_default_config_data():
 		("Beginner_List", []),
 		("Mute_Time", 3600),
 		("Public_Notes", False),
-		("Current_Note_Group", 0)
+		("Current_Note_Group", 0),
+		("Allow_Bots", False)
 	])
 	return config_data
 
@@ -2525,6 +2526,7 @@ def cmd_trigger_delete_notes(update: Update, context: CallbackContext):
 			else:
 				send_not_connected(bot,chat_id)
 				return
+			current = get_chat_config(chat_id,"Delete_Notes")
 			if current:
 				save_config_property(chat_id,"Delete_Notes",False)
 				bot_msg = TEXT[lang]["DELETE_NOTES_OFF"]
@@ -2557,6 +2559,7 @@ def cmd_trigger_public_notes(update: Update, context: CallbackContext):
 		chat_type = update.message.chat.type
 		print_id = chat_id
 		lang = get_chat_config(chat_id, "Language")
+		current = get_chat_config(chat_id,"Public_Notes")
 		if chat_type == "private":
 			connected = get_connected_group(bot,user_id)
 			if connected < 0:
@@ -2579,6 +2582,48 @@ def cmd_trigger_public_notes(update: Update, context: CallbackContext):
 			else:
 				save_config_property(chat_id,"Public_Notes",True)
 				bot_msg = TEXT[lang]["PUBLIC_NOTES_ON"]
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg, reply_to_message_id=update.message.message_id)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+
+def cmd_trigger_bots(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		lang = get_chat_config(chat_id, "Language")
+		current = get_chat_config(chat_id,"Allow_Bots")
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+			current = get_chat_config(chat_id,"Allow_Bots")
+			if current:
+				save_config_property(chat_id,"Allow_Bots",False)
+				bot_msg = TEXT[lang]["ALLOW_BOTS_OFF"]
+			else:
+				save_config_property(chat_id,"Allow_Bots",True)
+				bot_msg = TEXT[lang]["ALLOW_BOTS_ON"]
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		elif tlg_user_is_admin(bot, user_id, chat_id): 
+			if current:
+				save_config_property(chat_id,"Allow_Bots",False)
+				bot_msg = TEXT[lang]["ALLOW_BOTS_OFF"]
+			else:
+				save_config_property(chat_id,"Allow_Bots",True)
+				bot_msg = TEXT[lang]["ALLOW_BOTS_ON"]
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, print_id, bot_msg, reply_to_message_id=update.message.message_id)
 		else:
@@ -2931,6 +2976,7 @@ def main():
 	dp.add_handler(CommandHandler("kill_yourself",cmd_kick))
 
 	dp.add_handler(CommandHandler("trigger_delete_welcome", cmd_trigger_delete_welcome))
+	dp.add_handler(CommandHandler("trigger_bots", cmd_trigger_bots))
 	dp.add_handler(CommandHandler("trigger_delete_notes", cmd_trigger_delete_notes))
 	dp.add_handler(CommandHandler("trigger_public_notes",cmd_trigger_public_notes))
 
