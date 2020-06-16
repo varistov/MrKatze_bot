@@ -183,6 +183,9 @@
     "WELCOME_MSG_FAILED":
         "Failed to save welcome message.\n\nPlease check HTML tags!",
 
+    "NOTES_FAILED":
+        "Failed to save note message.\n\nPlease check HTML tags!",
+
     "RESTRICT_NON_TEXT_MSG_ENABLED":
         "Restriction to send non-text messages for new users enabled. I'm gonna remove new joined users permissions except text messages send.",
 

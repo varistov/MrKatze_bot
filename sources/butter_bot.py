@@ -1862,7 +1862,7 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 					save_config_property(chat_id, "Trigger_List",trigger_list)
 					bot_msg = TEXT[lang]["TRIGGER_ADD"]
 				else:
-					print("error")
+					bot_msg = TEXT[lang]["NOTES_FAILED"]
 			else:
 				if len(args) >= 2:
 					name = args[0]
@@ -1875,7 +1875,7 @@ def cmd_add_trigger(update: Update, context: CallbackContext):
 						save_config_property(chat_id, "Trigger_List",trigger_list)
 						bot_msg = TEXT[lang]["TRIGGER_ADD"]
 					else:
-						print("error")
+						bot_msg = TEXT[lang]["NOTES_FAILED"]
 				else:
 					bot_msg = TEXT[lang]["TRIGGER_ADD_NOT_ARG"]
 		elif not is_admin:
