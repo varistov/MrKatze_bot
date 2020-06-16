@@ -332,7 +332,7 @@ def send_welcome_msg(bot,chat_id, update, print_id):
 		welcome_msg = get_chat_config(chat_id, "Welcome_Msg").format(user_name,"{}".format(user_full_name), user_id,user_link,group_name)
 		welcome_msg = welcome_msg.replace("<br>","\n").replace("<br/>","\n")
 		if welcome_msg != "-":
-			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True,reply_to_message_id=update.message.message_id)
+			valid = bot.send_message(print_id, welcome_msg,parse_mode=ParseMode.HTML,disable_web_page_preview=True,disable_notification=True)
 			valid_id = int(getattr(valid, "message_id", 0))
 			if msg.chat.type != "private" and valid_id > 0 and get_chat_config(chat_id,"Delete_Welcome"):
 				tlg_msg_to_selfdestruct(valid)
