@@ -1178,7 +1178,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 						trigger_msg = trigger_list.pop(msg_text[1:],"")
 						if len(trigger_msg) > 0:
 							bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-						else:
+						elif not get_chat_config(msg.chat_id,"Allow_Bots"):
 							bot.delete_message(msg.chat_id,msg.message_id)
 					else:
 						lang = get_chat_config(msg.chat_id, "Language")
@@ -1201,7 +1201,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			elif len(trigger_msg) > 0:
 				bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
 				return
-			else:
+			elif not get_chat_config(msg.chat_id,"Allow_Bots"):
 				bot.delete_message(msg.chat_id,msg.message_id)
 				return
 		# Handle user captcha if message is private
@@ -1222,7 +1222,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				bot_msg = TEXT[lang]["HELP"]
 				tlg_send_selfdestruct_msg_in(bot, msg.chat_id, bot_msg, 5)
 			return
-		if(msg_text[0]=='/'):
+		if msg_text[0]=='/' and not get_chat_config(msg.chat_id,"Allow_Bots"):
 			bot.delete_message(msg.chat_id,msg.message_id)
 		# Ignore if captcha protection is not enable in this chat
 		captcha_enable = get_chat_config(msg.chat_id, "Enabled")
