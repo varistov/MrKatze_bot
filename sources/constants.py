@@ -66,7 +66,7 @@ CONST = {
     "INIT_CAPTCHA_CHARS_MODE": "hex",
 
     # Initial new users just allow to send text messages
-    "INIT_RESTRICT_NON_TEXT_MSG": True,
+    "INIT_RESTRICT_NON_TEXT_MSG": False,
 
     # Default time (in mins) to remove self-destruct sent messages from the Bot
     "T_DEL_MSG": 2,
