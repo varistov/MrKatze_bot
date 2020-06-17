@@ -93,6 +93,18 @@
     "ENABLE_FILTERS_OFF":
         "I disabled filters in this group.",
 
+    "FILTER_COPY_NOT_ARG":
+        "Specify an existing note/filter name, and the new note/filter name you want to create.\n\nExample:\n\n/copy_filter notename new filter string",
+
+    "COPY_FILTER_NOT_FOUND":
+        "There is no note or filter with the name you specified!",
+
+    "NOTE_CREATED":
+        "I created a note named {} with the filter message of {}.",
+
+    "FILTER_CREATED":
+        "I created a filter named {} with the note message of {}.",
+
     "PUBLIC_NOTES":
         "Choose a Group to access its notes:",
 
@@ -334,7 +346,7 @@
         "<b>v1nc ButterBot</b>\n<i>Real bot & log protection</i>\n\nRepo: <a href='{}'>github</a>\nInfo channel: @butter_bot_info\nDeveloper: {}\n\nBased on work by {}\n\n<i>Owner of this instance: @{}</i>",
 
     "COMMANDS":
-        "<b>List of group commands:</b>\n\n/start - Shows the initial information about the bot.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/time - Allows changing the time available to solve a captcha.\n\n/difficulty - Allows changing captcha difficulty level (from 1 to 5).\n\n/captcha_mode - Allows changing captcha character-mode (nums: just numbers, hex: numbers and A-F chars, ascii: numbers and A-Z chars).\n\n/set_welcome_msg - Allows configure a welcome message that is sent after resolving the captcha.\n\n/welcome_msg - Print the configured welcome message.\n\n/restrict_non_text - Enable apply restriction to new joined users to send non-text messages.\n\n/add_ignore - Do not ask an ignored user the captcha.\n\n/remove_ignore - Stop ignoring a user.\n\n/ignore_list - list of ignored users' IDs.\n\n/enable - Enable the captcha protection of the group.\n\n/disable - Disable the captcha protection of the group.\n\n/protection - Toggle bot log protection.\n\n/notes - Show note list.\n\n/add_note - Add a note and message to the list.\n\n/delete_note - Delete a note from the list.\n\n/trigger_delete_notes - Trigger the config for auto deleting notes.\n\n/trigger_delete_welcome - Trigger the config for auto deleting welcome messages.\n\n/version - Show the version of the Bot.\n\n/mute - Mute a user for 60 minutes. You can specify the user_id, or reply to the user you want to mute.\n\n/trigger_public_notes - Trigger if everyone can access your notes via private message.\n\n/trigger_bots - Trigger if other bots are tolerated in your group.\n\n/trigger_filters - Trigger if filters are enabled in your group.\n\n/filters - Show filter list.\n\n/add_filter - Add a filter and message to the list.\n\n/delete_filter - Delete a filter from the list.\n\n/about - Show about info.",
+        "<b>List of group commands:</b>\n\n/start - Shows the initial information about the bot.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/time - Allows changing the time available to solve a captcha.\n\n/difficulty - Allows changing captcha difficulty level (from 1 to 5).\n\n/captcha_mode - Allows changing captcha character-mode (nums: just numbers, hex: numbers and A-F chars, ascii: numbers and A-Z chars).\n\n/set_welcome_msg - Allows configure a welcome message that is sent after resolving the captcha.\n\n/welcome_msg - Print the configured welcome message.\n\n/restrict_non_text - Enable apply restriction to new joined users to send non-text messages.\n\n/add_ignore - Do not ask an ignored user the captcha.\n\n/remove_ignore - Stop ignoring a user.\n\n/ignore_list - list of ignored users' IDs.\n\n/enable - Enable the captcha protection of the group.\n\n/disable - Disable the captcha protection of the group.\n\n/protection - Toggle bot log protection.\n\n/notes - Show note list.\n\n/add_note - Add a note and message to the list.\n\n/delete_note - Delete a note from the list.\n\n/trigger_delete_notes - Trigger the config for auto deleting notes.\n\n/trigger_delete_welcome - Trigger the config for auto deleting welcome messages.\n\n/version - Show the version of the Bot.\n\n/mute - Mute a user for 60 minutes. You can specify the user_id, or reply to the user you want to mute.\n\n/trigger_public_notes - Trigger if everyone can access your notes via private message.\n\n/trigger_bots - Trigger if other bots are tolerated in your group.\n\n/trigger_filters - Trigger if filters are enabled in your group.\n\n/filters - Show filter list.\n\n/add_filter - Add a filter and message to the list.\n\n/delete_filter - Delete a filter from the list.\n\n/copy_filter - You can create a new note with the message of a filter, or create a new filter with the message of a note. First argument is an existing note/filter name, second argument specifies how the new filter/note should be named.\n\n/about - Show about info.",
 
     "USER_COMMANDS":
         "<b>List of user commands:</b>\n\n/start - Request invitation links for protected groups.\n\n/commands - Shows this message. Information about all the available commands and their description.\n\n/connect - Connect to a group you are admin of. This activates group commands in private chat.\n\n/disconnect - Disconnect from the connected group.",

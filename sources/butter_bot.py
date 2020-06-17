@@ -2783,6 +2783,59 @@ def cmd_delete_filter(update: Update, context: CallbackContext):
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
+def cmd_copy_filter(update: Update, context: CallbackContext):
+	'''Command /copy_filter message handler'''
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 2:
+				filter_list = get_chat_config(chat_id,"Filter_List")
+				note_list = get_chat_config(chat_id,"Trigger_List")
+
+				if args[0] in note_list:
+					filter_string = update.message.text.split(" ")[2]
+					filter_list[filter_string]=note_list[args[0]]
+					save_config_property(chat_id, "Filter_List", filter_list)
+					bot_msg = TEXT[lang]["FILTER_CREATED"]
+				elif args[0] in filter_list:
+					note_list=[args[1]]=filter_list[args[0]]
+					save_config_property(chat_id, "Note_List", note_list)
+					bot_msg = TEXT[lang]["NOTE_CREATED"]
+				else:
+					bot_msg = TEXT[lang]["COPY_FILTER_NOT_FOUND"]
+			else:
+				bot_msg = TEXT[lang]["FILTER_COPY_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+		else:
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, reply_to_message_id=update.message.message_id)
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
 def cmd_filters(update: Update, context: CallbackContext):
 	'''Command /notes message handler'''
 	try:

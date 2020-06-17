@@ -23,6 +23,7 @@ trigger_public_notes - Trigger if everyone can access your notes via private mes
 trigger_bots - Trigger if other bots are tolerated in your group.
 trigger_filters - Trigger if filters are enabled in your group.
 filters - Show filter list.
+copy_filter - You can create a new note with the message of a filter, or create a new filter with the message of a note. First argument is an existing note/filter name, second argument specifies how the new filter/note should be named.
 add_filter - Add a filter and message to the list. You can also reply to a message and specify the filtername.
 delete_filter - Delete a filter from the list.
 version - Show the version of the Bot.
