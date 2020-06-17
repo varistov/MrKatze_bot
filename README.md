@@ -8,6 +8,8 @@ I manage your telegram groups. I use [TLG_JoinCaptchaBot](https://github.com/J-R
 
 - notes: add notes for your user
 
+- filters: add filters so I can auto-answer questions or kick/ban users that are using specifiy strings
+
 - connect: manage your group settings in private
 
 - auto-delete: I do not spam your group, messages are automatically deleted
