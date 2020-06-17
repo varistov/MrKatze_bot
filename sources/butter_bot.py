@@ -2410,7 +2410,16 @@ def cmd_version(update: Update, context: CallbackContext):
 		send_to_owner(bot,chat_id,e)
 
 
-def cmd_about(update: Update, context: CallbackContext):"])
+def cmd_about(update: Update, context: CallbackContext):
+	'''Command /about handler'''
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		chat_id = update.message.chat_id
+		lang = get_chat_config(chat_id, "Language")
+		bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
+			SECRETS["OWNER_NAME"])
 		if update.message.chat.type == "private":
 			bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:
