@@ -2715,7 +2715,7 @@ def cmd_add_filter(update: Update, context: CallbackContext):
 		if allow_command:
 			reply_to = getattr(update.message,"reply_to_message", None)
 			if reply_to != None and len(args) >= 1:
-				name = args[0]
+				name = update.message.text
 				message = message_to_html(reply_to.text,reply_to.entities)
 				if test_note(bot,update, print_id, message):
 					trigger_list = get_chat_config(chat_id,"Filter_List")
