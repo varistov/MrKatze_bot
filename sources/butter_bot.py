@@ -505,13 +505,13 @@ def send_to_owner(bot,chat_id, message):
 	try:
 		error = traceback.format_exc()
 		printts("[{}]: {}".format(chat_id,error))
-		bot.send_message(CONST["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error),parse_mode=ParseMode.HTML)
+		bot.send_message(SECRETS["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error),parse_mode=ParseMode.HTML)
 	except Exception:
-		bot.send_message(CONST["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error))
+		bot.send_message(SECRETS["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error))
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
 
 def is_owner(id):
-	return int(id) == int(CONST["OWNER"])
+	return int(id) == int(SECRETS["OWNER"])
 
 def is_muted(chat_id,user_id):
 	new_list = get_chat_config(chat_id,"Muted_List")
@@ -916,7 +916,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 			return
 		if msg.chat.type != "private" and not get_chat_config(msg.chat_id,"Allowed"):
 				send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(SECRETS["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 				return
 		# For each new user that join or has been added
@@ -1158,7 +1158,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 		#add output if beginner
 		if msg.chat.type != "private" and not get_chat_config(chat_id,"Allowed"):
 			send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
+			tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(SECRETS["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
 			tlg_leave_chat(bot, msg.chat_id)
 			return
 		# If message doesnt has text, check for caption fields (for no text msgs and resended ones)
@@ -1522,7 +1522,7 @@ def cmd_start(update: Update, context: CallbackContext):
 				tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["START"])
 			else:
 				send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
-				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(CONST["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
+				tlg_send_selfdestruct_msg(bot, msg.chat_id,TEXT["EN"]["GROUP_NOT_ALLOWED"].format(SECRETS["OWNER_NAME"],chat_id,CONST["REPOSITORY"]))
 				tlg_leave_chat(bot, msg.chat_id)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
@@ -2410,16 +2410,7 @@ def cmd_version(update: Update, context: CallbackContext):
 		send_to_owner(bot,chat_id,e)
 
 
-def cmd_about(update: Update, context: CallbackContext):
-	'''Command /about handler'''
-	try:
-		bot = context.bot
-		if delete_if_muted(bot,update):
-			return
-		chat_id = update.message.chat_id
-		lang = get_chat_config(chat_id, "Language")
-		bot_msg = TEXT[lang]["ABOUT_MSG"].format(CONST["REPOSITORY"],CONST["DEVELOPER"],CONST["ORG_DEVELOPER"],
-			CONST["OWNER_NAME"])
+def cmd_about(update: Update, context: CallbackContext):"])
 		if update.message.chat.type == "private":
 			bot.send_message(chat_id, bot_msg,parse_mode=ParseMode.HTML)
 		else:

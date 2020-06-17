@@ -111,13 +111,7 @@ CONST = {
     "DEV_BTC": "3N9wf3FunR6YNXonquBeWammaBZVzTXTyR",
 
     # Bot version
-    "VERSION": "0.2.4 (16/06/2020)",
-
-    #Bot owner(hoster)
-    "OWNER": "294121217",
-
-    #Bot owner(hoster) telegram username
-    "OWNER_NAME": "v_1nc"
+    "VERSION": "0.2.4 (16/06/2020)"
 }
 
 

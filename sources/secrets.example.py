@@ -11,5 +11,11 @@ SECRETS = {
 	"API_ID" : 1234,
 
 	#Name for the API account
-	"API_NAME": ""
+	"API_NAME": "",
+
+	#Bot owner(hoster) ID
+    "OWNER": "12345678",
+
+    #Bot owner(hoster) telegram username
+    "OWNER_NAME": "v_1nc"
 }
