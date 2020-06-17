@@ -1383,7 +1383,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 						if filter_text == "/kick":
 							bot.kickChatMember(chat_id, user_id)
 						elif filter_text == "/ban":
-							tlg_ban_user(bot, chat_id, user_id):
+							tlg_ban_user(bot, chat_id, user_id)
 						if auto_delete:
 							tlg_send_selfdestruct_msg(bot, chat_id, filter_text,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
 						else:
