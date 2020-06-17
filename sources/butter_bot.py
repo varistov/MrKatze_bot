@@ -1532,7 +1532,8 @@ def cmd_connect(update: Update, context: CallbackContext):
 		else:
 			connected_group = get_chat_config(user_id,"Connected_Group")
 			if connected_group < 0:
-				bot_msg = TEXT[lang]["CONNECT_NO_ARGS_BUT_CONNECTED"].format(connected_group)
+				connected_title = get_chat_config(connected_group,"Title")
+				bot_msg = TEXT[lang]["CONNECT_NO_ARGS_BUT_CONNECTED"].format(connected_title,connected_group)
 			else:
 				bot_msg = TEXT[lang]["CONNECT_NO_ARGS"]
 			admin_groups =  list_admin_groups(bot,user_id)
