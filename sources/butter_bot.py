@@ -633,7 +633,9 @@ def get_default_config_data():
 		("Mute_Time", 3600),
 		("Public_Notes", False),
 		("Current_Note_Group", 0),
-		("Allow_Bots", False)
+		("Allow_Bots", False),
+		("Filters_Enabled",False),
+		("Filter_List", {})
 	])
 	return config_data
 
@@ -2634,6 +2636,46 @@ def cmd_trigger_bots(update: Update, context: CallbackContext):
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
+def cmd_trigger_filters(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		lang = get_chat_config(chat_id, "Language")
+		current = get_chat_config(chat_id,"Filters_Enabled")
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+			current = get_chat_config(chat_id,"Filters_Enabled")
+			if current:
+				save_config_property(chat_id,"Filters_Enabled",False)
+				bot_msg = TEXT[lang]["ENABLE_FILTERS_OFF"]
+			else:
+				save_config_property(chat_id,"Filters_Enabled",True)
+				bot_msg = TEXT[lang]["ENABLE_FILTERS_ON"]
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		elif tlg_user_is_admin(bot, user_id, chat_id): 
+			if current:
+				save_config_property(chat_id,"Filters_Enabled",False)
+				bot_msg = TEXT[lang]["ENABLE_FILTERS_OFF"]
+			else:
+				save_config_property(chat_id,"Filters_Enabled",True)
+				bot_msg = TEXT[lang]["ENABLE_FILTERS_ON"]
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg, reply_to_message_id=update.message.message_id)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
 
 def cmd_info(update: Update, context: CallbackContext):
 	try:
@@ -2981,6 +3023,8 @@ def main():
 	dp.add_handler(CommandHandler("trigger_bots", cmd_trigger_bots))
 	dp.add_handler(CommandHandler("trigger_delete_notes", cmd_trigger_delete_notes))
 	dp.add_handler(CommandHandler("trigger_public_notes",cmd_trigger_public_notes))
+	
+	dp.add_handler(CommandHandler("trigger_filters",cmd_trigger_filters))
 
 	dp.add_handler(CommandHandler("allow_group", cmd_allow_group,pass_args=True))
 	dp.add_handler(CommandHandler("disallow_group", cmd_disallow_group,pass_args=True))
