@@ -1378,7 +1378,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				reply_to_id = update.message.message_id
 				auto_delete = get_chat_config(chat_id,"Delete_Notes")
 				for filter_string in filter_list:
-					if filter_string in msg_text:
+					if filter_string.lower() in msg_text.lower():
 						filter_text = filter_list[filter_string]
 						if auto_delete:
 							tlg_send_selfdestruct_msg(bot, chat_id, filter_text,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
@@ -2827,11 +2827,11 @@ def cmd_copy_filter(update: Update, context: CallbackContext):
 					filter_string = update.message.text.split(" ")[2]
 					filter_list[filter_string]=note_list[args[0]]
 					save_config_property(chat_id, "Filter_List", filter_list)
-					bot_msg = TEXT[lang]["FILTER_CREATED"]
+					bot_msg = TEXT[lang]["FILTER_CREATED"].format(filter_string,args[0])
 				elif args[0] in filter_list:
 					note_list=[args[1]]=filter_list[args[0]]
 					save_config_property(chat_id, "Note_List", note_list)
-					bot_msg = TEXT[lang]["NOTE_CREATED"]
+					bot_msg = TEXT[lang]["NOTE_CREATED"].format(args[1],args[0])
 				else:
 					bot_msg = TEXT[lang]["COPY_FILTER_NOT_FOUND"]
 			else:
@@ -3230,6 +3230,7 @@ def main():
 	dp.add_handler(CommandHandler("add_filter", cmd_add_filter,pass_args=True))
 	dp.add_handler(CommandHandler("delete_filter",cmd_delete_filter,pass_args=True))
 	dp.add_handler(CommandHandler("filters",cmd_filters,pass_args=True))
+	dp.add_handler(CommandHandler("copy_filter",cmd_copy_filter,pass_args=True))
 
 	dp.add_handler(CommandHandler("allow_group", cmd_allow_group,pass_args=True))
 	dp.add_handler(CommandHandler("disallow_group", cmd_disallow_group,pass_args=True))
