@@ -22,6 +22,9 @@ trigger_delete_welcome - Trigger the config for auto deleting welcome messages.
 trigger_public_notes - Trigger if everyone can access your notes via private message.
 trigger_bots - Trigger if other bots are tolerated in your group.
 trigger_filters - Trigger if filters are enabled in your group.
+filters - Show filter list.
+add_filter - Add a filter and message to the list. You can also reply to a message and specify the filtername.
+delete_filter - Delete a filter from the list.
 version - Show the version of the Bot.
 mute - Mute a user for 60 minutes. You can specify the user_id, or reply to the user you want to mute.
 about - Show about info.

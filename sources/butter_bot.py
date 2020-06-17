@@ -2594,7 +2594,6 @@ def cmd_trigger_public_notes(update: Update, context: CallbackContext):
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
-
 def cmd_trigger_bots(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
@@ -2674,6 +2673,144 @@ def cmd_trigger_filters(update: Update, context: CallbackContext):
 		else:
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+def cmd_add_filter(update: Update, context: CallbackContext):
+	'''Command /add_filter message handler'''
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		args = context.args
+		chat_id = update.message.chat_id
+		print_id = chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			reply_to = getattr(update.message,"reply_to_message", None)
+			if reply_to != None and len(args) >= 1:
+				name = args[0]
+				message = message_to_html(reply_to.text,reply_to.entities)
+				if test_note(bot,update, print_id, message):
+					trigger_list = get_chat_config(chat_id,"Filter_List")
+					trigger_list[name]=message
+					save_config_property(chat_id, "Filter_List",trigger_list)
+					bot_msg = TEXT[lang]["FILTER_ADD"]
+				else:
+					bot_msg = TEXT[lang]["FILTER_FAILED"]
+			else:
+				if len(args) >= 2:
+					name = args[0]
+					message=" ".join(update.message.text.split(" ")[2:])
+					offset = len(update.message.text)-len(message)
+					message = message_to_html(message,update.message.entities,offset)
+					if test_note(bot,update, print_id, message):
+						trigger_list = get_chat_config(chat_id,"Filter_List")
+						trigger_list[name]=message
+						save_config_property(chat_id, "Filter_List",trigger_list)
+						bot_msg = TEXT[lang]["FILTER_ADD"]
+					else:
+						bot_msg = TEXT[lang]["FILTER_FAILED"]
+				else:
+					bot_msg = TEXT[lang]["FILTER_ADD_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+		else:
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, False, reply_to_message_id=update.message.message_id)
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+def cmd_delete_filter(update: Update, context: CallbackContext):
+	'''Command /delete_trigger message handler'''
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		lang = get_chat_config(chat_id, "Language")
+		allow_command = True
+		if chat_type != "private":
+			is_admin = tlg_user_is_admin(bot, user_id, chat_id)
+			if not is_admin:
+				allow_command = False
+		if allow_command:
+			if len(args) >= 1:
+				trigger_list = get_chat_config(chat_id,"Filter_List")
+				for trigger in args:
+					trigger_list.pop(trigger,"")
+				save_config_property(chat_id, "Filter_List",trigger_list)
+				bot_msg = TEXT[lang]["FILTER_DELETE"]
+			else:
+				bot_msg = TEXT[lang]["FILTER_DELETE_NOT_ARG"]
+		elif not is_admin:
+			 bot_msg = TEXT[lang]["CMD_NOT_ALLOW"]
+		else:
+			 bot_msg = TEXT[lang]["CAN_NOT_GET_ADMINS"]
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, reply_to_message_id=update.message.message_id)
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
+def cmd_filters(update: Update, context: CallbackContext):
+	'''Command /notes message handler'''
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		args = context.args
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		lang = get_chat_config(chat_id, "Language")
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+		trigger_list = get_chat_config(chat_id,"Filter_List")
+		trigger_string = "<b>Filter List</b>\n\n"
+		for key in trigger_list:
+			trigger_string+="- <code>{}</code>\n".format(key)
+		bot_msg = trigger_string
+		if chat_type == "private":
+			bot.send_message(user_id, bot_msg, parse_mode=ParseMode.HTML)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, bot_msg, reply_to_message_id=update.message.message_id)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
@@ -3023,8 +3160,11 @@ def main():
 	dp.add_handler(CommandHandler("trigger_bots", cmd_trigger_bots))
 	dp.add_handler(CommandHandler("trigger_delete_notes", cmd_trigger_delete_notes))
 	dp.add_handler(CommandHandler("trigger_public_notes",cmd_trigger_public_notes))
-	
+
 	dp.add_handler(CommandHandler("trigger_filters",cmd_trigger_filters))
+	dp.add_handler(CommandHandler("add_filter", cmd_add_filter,pass_args=True))
+	dp.add_handler(CommandHandler("delete_filter",cmd_delete_filter,pass_args=True))
+	dp.add_handler(CommandHandler("filters",cmd_filters,pass_args=True))
 
 	dp.add_handler(CommandHandler("allow_group", cmd_allow_group,pass_args=True))
 	dp.add_handler(CommandHandler("disallow_group", cmd_disallow_group,pass_args=True))
