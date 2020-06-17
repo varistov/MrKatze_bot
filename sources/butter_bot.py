@@ -1380,6 +1380,10 @@ def msg_nocmd(update: Update, context: CallbackContext):
 				for filter_string in filter_list:
 					if filter_string.lower() in msg_text.lower():
 						filter_text = filter_list[filter_string]
+						if filter_text == "/kick":
+							bot.kickChatMember(chat_id, user_id)
+						elif filter_text == "/ban":
+							tlg_ban_user(bot, chat_id, user_id):
 						if auto_delete:
 							tlg_send_selfdestruct_msg(bot, chat_id, filter_text,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
 						else:
@@ -2715,7 +2719,7 @@ def cmd_add_filter(update: Update, context: CallbackContext):
 		if allow_command:
 			reply_to = getattr(update.message,"reply_to_message", None)
 			if reply_to != None and len(args) >= 1:
-				name = update.message.text
+				name = update.message.text[12:]
 				message = message_to_html(reply_to.text,reply_to.entities)
 				if test_note(bot,update, print_id, message):
 					trigger_list = get_chat_config(chat_id,"Filter_List")
