@@ -1198,7 +1198,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			if reply_to_msg:
 				reply_to_id = reply_to_msg.message_id
 			if len(trigger_msg) > 0 and get_chat_config(chat_id,"Delete_Notes"):
-				tlg_send_selfdestruct_msg(bot, chat_id, trigger_msg,reply_to_message_id=reply_to_id)
+				tlg_send_selfdestruct_msg(bot, chat_id, trigger_msg,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
 				return
 			elif len(trigger_msg) > 0:
 				bot.send_message(msg.chat_id, trigger_msg,parse_mode=ParseMode.HTML,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
@@ -1372,6 +1372,18 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			printts("[{}] Captcha reply process complete.".format(chat_id))
 			printts(" ")
 			break
+		if msg.chat.type != "private":
+			if get_chat_config(chat_id,"Filters_Enabled"):
+				filter_list = get_chat_config(chat_id,"Filter_List")
+				reply_to_id = update.message.message_id
+				auto_delete = get_chat_config(chat_id,"Delete_Notes")
+				for filter_string in filter_list:
+					if filter_string in msg_text:
+						filter_text = filter_list[filter_string]
+						if auto_delete:
+							tlg_send_selfdestruct_msg(bot, chat_id, filter_text,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
+						else:
+							bot.send_message(chat_id, filter_text,parse_mode=ParseMode.HTML,reply_to_message_id=reply_to_id, disable_web_page_preview=True)
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
