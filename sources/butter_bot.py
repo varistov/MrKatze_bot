@@ -15,7 +15,7 @@ from operator import itemgetter
 from collections import OrderedDict
 from random import randint
 from telegram import (Update, InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup,
-	ChatPermissions, ParseMode)
+	ChatPermissions, ParseMode, ChatAction)
 from telegram.ext import (CallbackContext, Updater, CommandHandler, MessageHandler, Filters, 
 	CallbackQueryHandler, Defaults)
 
@@ -1523,6 +1523,7 @@ def cmd_connect(update: Update, context: CallbackContext):
 			tlg_msg_to_selfdestruct(update.message)
 			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)
 			return
+		bot.sendChatAction(chat_id, action=ChatAction.TYPING)
 		if len(args) == 1:
 			if tlg_user_is_admin(bot, user_id, args[0]):
 				bot_msg = TEXT[lang]["CONNECTED"].format(args[0])
