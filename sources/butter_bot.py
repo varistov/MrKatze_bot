@@ -635,7 +635,8 @@ def get_default_config_data():
 		("Current_Note_Group", 0),
 		("Allow_Bots", False),
 		("Filters_Enabled",False),
-		("Filter_List", {})
+		("Filter_List", {}),
+		("Delete_Info", False)
 	])
 	return config_data
 
@@ -909,6 +910,8 @@ def msg_new_user(update: Update, context: CallbackContext):
 		lang = get_chat_config(chat_id, "Language")
 		# Leave the chat if it is a channel
 		msg = getattr(update, "message", None)
+		if get_chat_config(chat_id,"Delete_Info"):
+			tlg_msg_to_selfdestruct(update.message)
 		if msg.chat.type == "channel":
 			send_to_owner(bot,chat_id,TEXT["EN"]["BOT_LEFT_GROUP"].format(chat_id))
 			tlg_send_selfdestruct_msg_in(bot, chat_id, TEXT["EN"]["BOT_LEAVE_CHANNEL"]+" {}".format(chat_id))
@@ -1088,6 +1091,14 @@ def msg_new_user(update: Update, context: CallbackContext):
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
+
+def handle_service_message(update: Update, context: CallbackContext):
+	bot = context.bot
+	message = update.message
+	chat_id = message.chat_id
+	if get_chat_config(chat_id,"Delete_Info"):
+		tlg_msg_to_selfdestruct(update.message)
+				
 def msg_notext(update: Update, context: CallbackContext):
 	'''All non-text messages handler.'''
 	try:
@@ -2883,6 +2894,47 @@ def cmd_filters(update: Update, context: CallbackContext):
 	except Exception as e:
 		send_to_owner(bot,chat_id,e)
 
+def cmd_trigger_delete_info(update: Update, context: CallbackContext):
+	try:
+		bot = context.bot
+		if delete_if_muted(bot,update):
+			return
+		chat_id = update.message.chat_id
+		user_id = update.message.from_user.id
+		chat_type = update.message.chat.type
+		print_id = chat_id
+		lang = get_chat_config(chat_id, "Language")
+		current = get_chat_config(chat_id,"Delete_Info")
+		if chat_type == "private":
+			connected = get_connected_group(bot,user_id)
+			if connected < 0:
+				chat_id = connected
+			else:
+				send_not_connected(bot,chat_id)
+				return
+			current = get_chat_config(chat_id,"Delete_Info")
+			if current:
+				save_config_property(chat_id,"Delete_Info",False)
+				bot_msg = TEXT[lang]["DELETE_INFO_OFF"]
+			else:
+				save_config_property(chat_id,"Delete_Info",True)
+				bot_msg = TEXT[lang]["DELETE_INFO_ON"]
+			bot.send_message(print_id, bot_msg,parse_mode=ParseMode.HTML)
+		elif tlg_user_is_admin(bot, user_id, chat_id): 
+			if current:
+				save_config_property(chat_id,"Delete_Info",False)
+				bot_msg = TEXT[lang]["DELETE_INFO_OFF"]
+			else:
+				save_config_property(chat_id,"Delete_Info",True)
+				bot_msg = TEXT[lang]["DELETE_INFO_ON"]
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, print_id, bot_msg, reply_to_message_id=update.message.message_id)
+		else:
+			tlg_msg_to_selfdestruct(update.message)
+			tlg_send_selfdestruct_msg(bot, chat_id, TEXT[lang]["CMD_NOT_ALLOW"],reply_to_message_id=update.message.message_id)	
+	except Exception as e:
+		send_to_owner(bot,chat_id,e)
+
 def cmd_info(update: Update, context: CallbackContext):
 	try:
 		bot = context.bot
@@ -3229,6 +3281,8 @@ def main():
 	dp.add_handler(CommandHandler("trigger_bots", cmd_trigger_bots))
 	dp.add_handler(CommandHandler("trigger_delete_notes", cmd_trigger_delete_notes))
 	dp.add_handler(CommandHandler("trigger_public_notes",cmd_trigger_public_notes))
+	dp.add_handler(CommandHandler("trigger_delete_info",cmd_trigger_delete_info))
+
 
 	dp.add_handler(CommandHandler("trigger_filters",cmd_trigger_filters))
 	dp.add_handler(CommandHandler("add_filter", cmd_add_filter,pass_args=True))
@@ -3264,8 +3318,12 @@ def main():
 	dp.add_handler(MessageHandler(Filters.photo | Filters.audio | Filters.voice |
 			Filters.video | Filters.sticker | Filters.document | Filters.location |
 			Filters.contact, msg_notext))
+
 	# Set to dispatcher a new member join the group and member left the group events handlers
 	dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, msg_new_user))
+
+	dp.add_handler(MessageHandler(Filters.status_update, handle_service_message))
+
 	# Set to dispatcher request new captcha button callback handler
 	dp.add_handler(CallbackQueryHandler(button_request_captcha))
 	# Launch the Bot ignoring pending messages (clean=True) and get all updates (cllowed_uptades=[])
