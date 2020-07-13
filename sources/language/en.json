@@ -49,7 +49,7 @@
         "I left group <code>{}</code> because I am not allowed to work there.",
 
     "OWNER_ERROR_MSG":
-        "<b>ERROR:</b> <i>{}</i>\n\n<code>{}</code>",
+        "<b>ERROR(<code>{}</code>):</b> <i>{}</i>\n\n<code>{}</code>",
 
     "GROUP_ALLOW_NO_ARGS":  
         "Please specify which group you want to allow!",

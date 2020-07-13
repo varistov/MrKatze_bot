@@ -505,9 +505,9 @@ def send_to_owner(bot,chat_id, message):
 	try:
 		error = traceback.format_exc()
 		printts("[{}]: {}".format(chat_id,error))
-		bot.send_message(SECRETS["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error),parse_mode=ParseMode.HTML)
+		bot.send_message(SECRETS["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(chat_id,str(message),error),parse_mode=ParseMode.HTML)
 	except Exception:
-		bot.send_message(SECRETS["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(str(message),error))
+		bot.send_message(SECRETS["OWNER"],TEXT["EN"]["OWNER_ERROR_MSG"].format(chat_id,str(message),error))
 		printts("[{}]: {}".format(chat_id,traceback.format_exc()))
 
 def is_owner(id):
@@ -1372,7 +1372,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 			printts("[{}] Captcha reply process complete.".format(chat_id))
 			printts(" ")
 			break
-		if msg.chat.type != "private":
+		if msg.chat.type != "private" and len(msg_text) > 1:
 			if get_chat_config(chat_id,"Filters_Enabled"):
 				filter_list = get_chat_config(chat_id,"Filter_List")
 				reply_to_id = update.message.message_id
