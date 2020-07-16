@@ -996,6 +996,7 @@ def msg_new_user(update: Update, context: CallbackContext):
 				elif protected:
 					kick_user(bot,chat_id,join_user_id,update.message.from_user.username)
 					printts("[{}] User kicked because of protection!".format(chat_id))
+					revoke_group_link(bot,chat_id)
 					continue
 				# Check and remove previous join messages of that user (if any)
 				i = 0
@@ -3322,7 +3323,7 @@ def main():
 	# Set to dispatcher a new member join the group and member left the group events handlers
 	dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, msg_new_user))
 
-	dp.add_handler(MessageHandler(Filters.status_update, handle_service_message))
+	#dp.add_handler(MessageHandler(Filters.status_update, handle_service_message))
 
 	# Set to dispatcher request new captcha button callback handler
 	dp.add_handler(CallbackQueryHandler(button_request_captcha))
