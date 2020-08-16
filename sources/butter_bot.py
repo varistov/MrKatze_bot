@@ -1393,6 +1393,7 @@ def msg_nocmd(update: Update, context: CallbackContext):
 						filter_text = filter_list[filter_string]
 						if filter_text == "/kick":
 							bot.kickChatMember(chat_id, user_id)
+							bot.unbanChatMember(chat_id, user_id)
 						elif filter_text == "/ban":
 							tlg_ban_user(bot, chat_id, user_id)
 						if auto_delete:
@@ -3322,7 +3323,7 @@ def main():
 	# Set to dispatcher a new member join the group and member left the group events handlers
 	dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, msg_new_user))
 
-	dp.add_handler(MessageHandler(Filters.status_update, handle_service_message))
+	#	dp.add_handler(MessageHandler(Filters.status_update, handle_service_message))
 
 	# Set to dispatcher request new captcha button callback handler
 	dp.add_handler(CallbackQueryHandler(button_request_captcha))
