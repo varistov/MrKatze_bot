@@ -283,7 +283,7 @@
         "That is not the correct number. Check closely, the captcha has 4 numbers...",
 
     "NEW_USER_KICK":
-        "{} has not completed the captcha in time. \"User\" was kicked.",
+        "{} was kicked.",
 
     "NEW_USER_KICK_NOT_RIGHTS":
         "{} has not completed the captcha in time. I tried to kick the \"User\", but I don't have administration rights to kick users in the group.",
