@@ -1,4 +1,4 @@
-# butter_bot
+# MrKatze_bot
 I manage your telegram groups. I use [TLG_JoinCaptchaBot](https://github.com/J-Rios/TLG_JoinCaptchaBot) for captchas.
 
 ## Features:
